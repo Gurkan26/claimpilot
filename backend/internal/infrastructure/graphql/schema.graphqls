@@ -1,0 +1,307 @@
+# ClaimPilot GraphQL Schema
+
+scalar DateTime
+scalar ObjectID
+scalar UUID
+scalar Upload
+
+# ─── Enums ───────────────────────────────────────────
+
+enum DocumentType {
+  CONTRACT
+  INVOICE
+  LICENSE
+  POLICY
+  SUBSCRIPTION
+  OTHER
+}
+
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING
+  ANALYZED
+  FAILED
+}
+
+enum ObligationType {
+  RENEWAL
+  PAYMENT
+  REPORT
+  WARRANTY
+  CANCELLATION
+  COMPLIANCE
+}
+
+enum ObligationStatus {
+  DETECTED
+  PENDING_APPROVAL
+  IN_PROGRESS
+  RESOLVED
+  EXPIRED
+  DISMISSED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum OpportunityStatus {
+  OPEN
+  BIDDING
+  MATCHED
+  TRANSACTED
+  EXPIRED
+  CANCELLED
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+# ─── Types ───────────────────────────────────────────
+
+type Money {
+  amount: Float!
+  currency: String!
+}
+
+type ExtractionField {
+  fieldName: String!
+  value: String!
+  confidence: Float!
+  pageRef: Int
+}
+
+type ExtractionResult {
+  fields: [ExtractionField!]!
+  summary: String!
+  processedAt: DateTime!
+  modelUsed: String!
+}
+
+type Document {
+  id: ObjectID!
+  userId: UUID!
+  organizationId: UUID
+  fileName: String!
+  fileType: DocumentType!
+  mimeType: String!
+  fileSize: Int!
+  status: DocumentStatus!
+  extractionResult: ExtractionResult
+  tags: [String!]
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  obligations: [Obligation!]!
+}
+
+type AgentOutput {
+  agentType: String!
+  modelUsed: String!
+  output: String!
+  confidence: Float!
+  sourceRefs: [String!]
+  processedAt: DateTime!
+}
+
+type Action {
+  type: String!
+  description: String!
+  mcpAdapter: String
+}
+
+type Obligation {
+  id: ObjectID!
+  userId: UUID!
+  organizationId: UUID
+  sourceDocument: Document!
+  type: ObligationType!
+  title: String!
+  description: String!
+  dueDate: DateTime!
+  reminderDate: DateTime
+  status: ObligationStatus!
+  riskLevel: RiskLevel!
+  suggestedAction: Action
+  approvedAction: Action
+  analystOutput: AgentOutput
+  verifierOutput: AgentOutput
+  marketplaceOpportunity: MarketplaceOpportunity
+  daysUntilDue: Int!
+  isOverdue: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Vendor {
+  id: String!
+  name: String!
+  category: String!
+  rating: Float
+  website: String
+  verified: Boolean!
+}
+
+type Bid {
+  id: ObjectID!
+  opportunityId: ObjectID!
+  vendor: Vendor!
+  price: Money!
+  terms: String
+  submittedBy: String!
+  status: BidStatus!
+  riskScore: Float
+  riskNotes: String
+  savingsAmount: Money
+  validUntil: DateTime
+  createdAt: DateTime!
+}
+
+type MarketplaceOpportunity {
+  id: ObjectID!
+  obligationId: ObjectID!
+  category: String!
+  currentVendorName: String!
+  currentVendorCost: Money
+  status: OpportunityStatus!
+  bids: [Bid!]!
+  bestBid: Bid
+  bidCount: Int!
+  expiresAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Transaction {
+  id: ObjectID!
+  opportunityId: ObjectID!
+  bidId: ObjectID!
+  amount: Money!
+  commission: Money!
+  commissionRate: Float!
+  savingsRealized: Money
+  status: TransactionStatus!
+  vendorName: String!
+  completedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type DashboardSummary {
+  totalObligations: Int!
+  pendingObligations: Int!
+  overdueObligations: Int!
+  upcomingObligations: [Obligation!]!
+  totalGMV: Money!
+  totalSavings: Money!
+  recentTransactions: [Transaction!]!
+  agentStatus: AgentStatus!
+}
+
+type AgentStatus {
+  analystHealthy: Boolean!
+  verifierHealthy: Boolean!
+  analystModel: String!
+  verifierModel: String!
+  mcpAdapters: [String!]!
+}
+
+type AgentMessage {
+  id: String!
+  sessionId: String!
+  role: String!
+  content: String!
+  timestamp: DateTime!
+  done: Boolean!
+}
+
+type DashboardEvent {
+  type: String!
+  payload: String!
+  timestamp: DateTime!
+}
+
+# ─── Inputs ──────────────────────────────────────────
+
+input UploadDocumentInput {
+  fileName: String!
+  fileType: DocumentType!
+  mimeType: String!
+  content: String!
+  tags: [String!]
+}
+
+input ObligationFilter {
+  status: [ObligationStatus!]
+  type: [ObligationType!]
+  riskLevel: [RiskLevel!]
+  dueBefore: DateTime
+  dueAfter: DateTime
+  limit: Int
+  offset: Int
+}
+
+input DocumentFilter {
+  status: [DocumentStatus!]
+  fileType: [DocumentType!]
+  limit: Int
+  offset: Int
+}
+
+input OpportunityFilter {
+  status: [OpportunityStatus!]
+  category: String
+  limit: Int
+  offset: Int
+}
+
+# ─── Root Types ──────────────────────────────────────
+
+type Query {
+  me: User!
+  documents(filter: DocumentFilter): [Document!]!
+  document(id: ObjectID!): Document
+  obligations(filter: ObligationFilter): [Obligation!]!
+  obligation(id: ObjectID!): Obligation
+  marketplaceOpportunities(filter: OpportunityFilter): [MarketplaceOpportunity!]!
+  marketplaceOpportunity(id: ObjectID!): MarketplaceOpportunity
+  dashboardSummary: DashboardSummary!
+  transactions(limit: Int, offset: Int): [Transaction!]!
+}
+
+type Mutation {
+  uploadDocument(input: UploadDocumentInput!): Document!
+  deleteDocument(id: ObjectID!): Boolean!
+  approveObligationAction(id: ObjectID!): Obligation!
+  dismissObligation(id: ObjectID!): Obligation!
+  requestMarketplaceBids(opportunityId: ObjectID!): MarketplaceOpportunity!
+  acceptBid(bidId: ObjectID!): Transaction!
+  chatWithAgent(sessionId: String!, message: String!): AgentMessage!
+}
+
+type Subscription {
+  agentStream(sessionId: String!): AgentMessage!
+  dashboardEvents(orgId: UUID): DashboardEvent!
+}
+
+# User type (from existing IAM domain)
+type User {
+  id: UUID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  status: String!
+}

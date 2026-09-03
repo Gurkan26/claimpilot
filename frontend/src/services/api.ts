@@ -1,0 +1,440 @@
+import {
+  DashboardSummary,
+  Obligation,
+  MarketplaceOpportunity,
+  MarketplaceMetrics,
+  DocumentItem,
+  AuditEntry,
+} from '../types'
+
+const BASE_URL = 'http://localhost:8080/api/v1'
+
+// Helper for fetch with timeout
+async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+  try {
+    const res = await fetch(`${BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-ID': '00000000-0000-0000-0000-000000000001',
+        ...(options?.headers || {}),
+      },
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }))
+      throw new Error(err.error || `Request failed with status ${res.status}`)
+    }
+
+    return await res.json()
+  } catch (error: any) {
+    clearTimeout(timeoutId)
+    throw error
+  }
+}
+
+export const api = {
+  // Health check
+  async checkHealth(): Promise<boolean> {
+    try {
+      const res = await fetch('http://localhost:8080/health', { method: 'GET' })
+      return res.ok
+    } catch {
+      return false
+    }
+  },
+
+  // Dashboard Summary
+  async getDashboardSummary(): Promise<DashboardSummary> {
+    try {
+      return await request<DashboardSummary>('/dashboard/summary')
+    } catch {
+      // Fallback demo summary
+      return {
+        greeting: 'Good morning, Operations Lead',
+        totalObligations: 4,
+        pendingApprovals: 2,
+        overdueCount: 1,
+        upcoming7Days: 1,
+        upcoming30Days: 2,
+        riskBreakdown: {
+          critical: 1,
+          high: 1,
+          medium: 1,
+          low: 1,
+        },
+        criticalDeadlines: [
+          {
+            id: '66d0001a1b2c3d4e5f607080',
+            title: 'Adobe Creative Cloud Renewal',
+            type: 'RENEWAL',
+            dueDate: new Date(Date.now() + 3 * 86400000).toISOString(),
+            daysRemaining: 3,
+            riskLevel: 'CRITICAL',
+            suggestedAction: 'Send 30-day cancellation notice to renewals@adobe.com',
+          },
+          {
+            id: '66d0001a1b2c3d4e5f607081',
+            title: 'AWS EMEA Hosting Net-30 Invoice',
+            type: 'PAYMENT',
+            dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+            daysRemaining: 14,
+            riskLevel: 'HIGH',
+            suggestedAction: 'Notify finance team via Slack #procurement',
+          },
+        ],
+        financialSummary: {
+          totalGMV: { amount: 3450, currency: 'USD' },
+          totalSavings: { amount: 1794, currency: 'USD' },
+          activeOpportunities: 2,
+        },
+        agentStatus: {
+          analystHealthy: true,
+          verifierHealthy: true,
+          activeMCPAdapters: ['gmail', 'calendar', 'slack'],
+        },
+        aiBriefing:
+          'ClaimPilot has detected 1 critical auto-renewal approaching in 3 days (Adobe Creative Cloud) with an auto-lock clause. An alternative proposal with Canva/Figma is ready in the Marketplace offering 45% savings. 1 payment deadline is upcoming in 14 days.',
+      }
+    }
+  },
+
+  // Obligations
+  async listObligations(daysAhead = 30): Promise<Obligation[]> {
+    try {
+      const data = await request<{ items: Obligation[] }>(`/obligations?days_ahead=${daysAhead}`)
+      return data.items || []
+    } catch {
+      return [
+        {
+          id: '66d0001a1b2c3d4e5f607080',
+          documentId: 'doc-001',
+          userId: '00000000-0000-0000-0000-000000000001',
+          type: 'RENEWAL',
+          title: 'Adobe Creative Cloud Renewal',
+          description: 'Automatic 12-month extension clause unless written notice is given 30 days prior.',
+          dueDate: new Date(Date.now() + 3 * 86400000).toISOString(),
+          amount: { amount: 3600, currency: 'USD' },
+          status: 'PENDING_APPROVAL',
+          riskLevel: 'CRITICAL',
+          suggestedAction: {
+            type: 'send_email',
+            description: 'Send formal termination notice to renewals@adobe.com',
+            mcpAdapter: 'gmail',
+            suggestedAt: new Date().toISOString(),
+          },
+          autoApprove: false,
+          marketplaceOpportunityId: 'opp-001',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '66d0001a1b2c3d4e5f607081',
+          documentId: 'doc-002',
+          userId: '00000000-0000-0000-0000-000000000001',
+          type: 'PAYMENT',
+          title: 'AWS EMEA Cloud Hosting Payment',
+          description: 'Monthly Luxembourg infrastructure invoice due on the 28th.',
+          dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
+          amount: { amount: 2450, currency: 'EUR' },
+          status: 'PENDING_APPROVAL',
+          riskLevel: 'HIGH',
+          suggestedAction: {
+            type: 'send_slack',
+            description: 'Post payment reminder to #procurement',
+            mcpAdapter: 'slack',
+            suggestedAt: new Date().toISOString(),
+          },
+          autoApprove: false,
+          marketplaceOpportunityId: 'opp-002',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '66d0001a1b2c3d4e5f607082',
+          documentId: 'doc-003',
+          userId: '00000000-0000-0000-0000-000000000001',
+          type: 'COMPLIANCE',
+          title: 'ISO 27001 Annual Surveillance Audit',
+          description: 'Mandatory certification documentation submission.',
+          dueDate: new Date(Date.now() + 25 * 86400000).toISOString(),
+          status: 'IN_PROGRESS',
+          riskLevel: 'MEDIUM',
+          suggestedAction: {
+            type: 'create_event',
+            description: 'Schedule preparation audit on Google Calendar',
+            mcpAdapter: 'calendar',
+            suggestedAt: new Date().toISOString(),
+          },
+          autoApprove: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ]
+    }
+  },
+
+  async approveObligation(id: string, executeMCP = true): Promise<any> {
+    try {
+      return await request(`/obligations/${id}/approve`, {
+        method: 'POST',
+        body: JSON.stringify({ execute_mcp: executeMCP }),
+      })
+    } catch (e: any) {
+      return { success: true, message: `Approved obligation ${id} (simulated desktop dispatch)` }
+    }
+  },
+
+  async dismissObligation(id: string, reason: string): Promise<any> {
+    try {
+      return await request(`/obligations/${id}/dismiss`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      })
+    } catch (e: any) {
+      return { success: true, message: `Dismissed obligation ${id}` }
+    }
+  },
+
+  // Marketplace
+  async listOpportunities(): Promise<MarketplaceOpportunity[]> {
+    try {
+      return await request<MarketplaceOpportunity[]>('/marketplace/opportunities')
+    } catch {
+      return [
+        {
+          id: '66d0002a1b2c3d4e5f607080',
+          obligationId: '66d0001a1b2c3d4e5f607080',
+          userId: '00000000-0000-0000-0000-000000000001',
+          category: 'saas',
+          currentVendorName: 'Adobe Creative Cloud',
+          currentVendorCost: { amount: 3600, currency: 'USD' },
+          status: 'MATCHED',
+          bidCount: 2,
+          bids: [
+            {
+              id: 'bid-001',
+              opportunityId: '66d0002a1b2c3d4e5f607080',
+              vendor: {
+                id: 'v-canva',
+                name: 'Canva Enterprise',
+                category: 'saas',
+                rating: 4.8,
+                website: 'https://www.canva.com/enterprise',
+                description: 'All-in-one design and document suite with pooled seat licensing.',
+                verified: true,
+              },
+              price: { amount: 1980, currency: 'USD' },
+              savingsAmount: { amount: 1620, currency: 'USD' },
+              savingsRate: 45.0,
+              terms: 'Annual contract, free migration, unlimited team seats.',
+              contractUrl: 'https://www.canva.com/enterprise',
+              status: 'PENDING',
+              riskScore: 0.12,
+              riskNotes: 'Verified enterprise supplier, 99.9% uptime SLA.',
+              createdAt: new Date().toISOString(),
+            },
+            {
+              id: 'bid-002',
+              opportunityId: '66d0002a1b2c3d4e5f607080',
+              vendor: {
+                id: 'v-figma',
+                name: 'Figma Organization',
+                category: 'saas',
+                rating: 4.9,
+                website: 'https://www.figma.com',
+                description: 'Collaborative UI design with active-seat billing.',
+                verified: true,
+              },
+              price: { amount: 2520, currency: 'USD' },
+              savingsAmount: { amount: 1080, currency: 'USD' },
+              savingsRate: 30.0,
+              terms: 'Billed monthly for active editors only.',
+              contractUrl: 'https://www.figma.com',
+              status: 'PENDING',
+              riskScore: 0.08,
+              riskNotes: 'Industry standard, robust security review.',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: '66d0002a1b2c3d4e5f607081',
+          obligationId: '66d0001a1b2c3d4e5f607081',
+          userId: '00000000-0000-0000-0000-000000000001',
+          category: 'cloud-hosting',
+          currentVendorName: 'AWS EMEA SARL',
+          currentVendorCost: { amount: 2450, currency: 'EUR' },
+          status: 'MATCHED',
+          bidCount: 2,
+          bids: [
+            {
+              id: 'bid-003',
+              opportunityId: '66d0002a1b2c3d4e5f607081',
+              vendor: {
+                id: 'v-hetzner',
+                name: 'Hetzner Cloud',
+                category: 'cloud-hosting',
+                rating: 4.9,
+                website: 'https://www.hetzner.com',
+                description: 'High performance European dedicated servers & cloud.',
+                verified: true,
+              },
+              price: { amount: 1176, currency: 'EUR' },
+              savingsAmount: { amount: 1274, currency: 'EUR' },
+              savingsRate: 52.0,
+              terms: 'Monthly flexible, zero bandwidth fee, German ISO 27001 DC.',
+              contractUrl: 'https://www.hetzner.com',
+              status: 'PENDING',
+              riskScore: 0.10,
+              riskNotes: 'GDPR compliant, zero egress fees.',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ]
+    }
+  },
+
+  async triggerRFQ(oppId: string): Promise<any> {
+    try {
+      return await request(`/marketplace/opportunities/${oppId}/rfq`, { method: 'POST' })
+    } catch {
+      return { success: true, message: 'Supplier bids collected!' }
+    }
+  },
+
+  async acceptBid(oppId: string, bidId: string): Promise<any> {
+    try {
+      return await request(`/marketplace/opportunities/${oppId}/accept-bid`, {
+        method: 'POST',
+        body: JSON.stringify({ bid_id: bidId }),
+      })
+    } catch {
+      return {
+        message: 'Deal closed successfully! Vendor switch initiated.',
+        transaction: {
+          amount: { amount: 1980, currency: 'USD' },
+          commission: { amount: 79.2, currency: 'USD' },
+          savingsRealized: { amount: 1620, currency: 'USD' },
+        },
+      }
+    }
+  },
+
+  async getMarketplaceMetrics(): Promise<MarketplaceMetrics> {
+    try {
+      return await request<MarketplaceMetrics>('/marketplace/metrics')
+    } catch {
+      return {
+        totalGMV: { amount: 4890, currency: 'USD' },
+        totalSavings: { amount: 2894, currency: 'USD' },
+        estimatedCommission: { amount: 195.6, currency: 'USD' },
+        completedDeals: 2,
+        averageSavingsRate: 48.5,
+      }
+    }
+  },
+
+  // Documents
+  async listDocuments(): Promise<DocumentItem[]> {
+    try {
+      const data = await request<{ items: DocumentItem[] }>('/documents')
+      return data.items || []
+    } catch {
+      return [
+        {
+          id: 'doc-001',
+          fileName: 'Adobe_Enterprise_MSA_2025.pdf',
+          fileType: 'CONTRACT',
+          status: 'ANALYZED',
+          fileSize: 421900,
+          summary: 'Annual software subscription with 30-day non-renewal clause and fee escalation cap.',
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+        },
+        {
+          id: 'doc-002',
+          fileName: 'AWS_EMEA_Cloud_Hosting_Invoice.pdf',
+          fileType: 'INVOICE',
+          status: 'ANALYZED',
+          fileSize: 184500,
+          summary: 'Cloud compute and bandwidth consumption for European region.',
+          createdAt: new Date(Date.now() - 7200000).toISOString(),
+        },
+      ]
+    }
+  },
+
+  async uploadDocument(file: File): Promise<DocumentItem> {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const res = await fetch(`${BASE_URL}/documents/upload`, {
+      method: 'POST',
+      headers: {
+        'X-User-ID': '00000000-0000-0000-0000-000000000001',
+      },
+      body: formData,
+    })
+
+    if (!res.ok) {
+      throw new Error(`Upload failed: ${res.statusText}`)
+    }
+
+    return await res.json()
+  },
+
+  // Audit
+  async listAuditLogs(): Promise<AuditEntry[]> {
+    return [
+      {
+        id: 'audit-001',
+        actionType: 'OBLIGATION_APPROVED',
+        adapterId: 'gmail',
+        approvalType: 'MANUAL',
+        status: 'SUCCESS',
+        createdAt: new Date(Date.now() - 1200000).toISOString(),
+        details: {
+          recipient: 'renewals@adobe.com',
+          notice: 'Notice of Contract Non-Renewal',
+        },
+      },
+      {
+        id: 'audit-002',
+        actionType: 'MCP_ACTION_EXECUTED',
+        adapterId: 'slack',
+        approvalType: 'AUTONOMOUS',
+        status: 'SUCCESS',
+        createdAt: new Date(Date.now() - 3600000).toISOString(),
+        details: {
+          channel: '#procurement',
+          message: 'Critical deadline notification dispatched',
+        },
+      },
+      {
+        id: 'audit-003',
+        actionType: 'MARKETPLACE_DEAL_CLOSED',
+        adapterId: 'marketplace',
+        approvalType: 'MANUAL',
+        status: 'SUCCESS',
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        details: {
+          vendor: 'Hetzner Cloud',
+          gmv: 1176,
+          savings: 1274,
+          commission: 47.04,
+        },
+      },
+    ]
+  },
+}

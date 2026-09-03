@@ -1,0 +1,34 @@
+SOFTWARE LICENSE SCHEDULE & ENTITLEMENT CERTIFICATE
+
+LICENSE AGREEMENT REFERENCE: DD-ENT-2025-4421
+Effective Date: November 01, 2025
+Term: 12 Months
+Expiration / Renewal Date: October 31, 2026
+
+LICENSOR:
+Datadog Inc., 620 8th Avenue, 45th Floor, New York, NY 10018, USA
+Enterprise Support: enterprise-licensing@datadoghq.com
+
+LICENSEE:
+Acme Global Teknoloji A.S.
+System Administrator: Can Ozturk
+Email: can.ozturk@acmeglobal.com
+Phone: +90 533 999 88 77
+
+LICENSED PRODUCTS & METRICS:
+Product: Datadog Pro Monitoring & APM Suite
+License Metric: Per-Host / Per-Node Monthly Allocation
+Committed Capacity: 100 Infrastructure Hosts
+Committed Rate: $18.00 USD per host per month
+Total Monthly Commitment: $1,800.00 USD
+Annual Contracted Commitment: $21,600.00 USD
+
+AUDIT & UTILIZATION REPORT (Telemetry Month: August 2026):
+Total Hosts Contracted: 100
+Average Monthly Active Hosts Reporting: 38 Hosts
+Capacity Utilization Rate: 38.0%
+Underutilized Capacity: 62 idle host licenses ($1,116.00 USD/month idle spend)
+
+RENEWAL & RE-TIERING TERMS:
+Section 4.1: Licensee may modify committed host tiers or terminate automatic renewal by providing written confirmation at least thirty (30) days prior to the expiration date (no later than October 01, 2026).
+Section 4.2: In the absence of written tier renegotiation, the license automatically extends for one additional year at the baseline rate of 100 hosts ($21,600.00 USD).

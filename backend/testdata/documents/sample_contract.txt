@@ -1,0 +1,30 @@
+MASTER SERVICES & SOFTWARE SUBSCRIPTION AGREEMENT
+
+This Master Services Agreement ("Agreement") is entered into as of October 18, 2025 ("Effective Date"), by and between:
+
+PROVIDER:
+Adobe Systems Software Ireland Limited, 4-6 Riverwalk, Citywest Business Campus, Dublin 24, Ireland ("Provider").
+
+CUSTOMER:
+Acme Global Teknoloji A.S., Levent Buyukdere Caddesi No: 195, Sisli, Istanbul, Turkiye ("Customer").
+Authorized Representative: Ahmet Yilmaz (TCKN: 12345678901)
+Contact Email: ahmet.yilmaz@acmeglobal.com
+Contact Phone: +90 532 123 45 67
+Bank Details / IBAN: TR330006100511123456789012
+
+1. SUBSCRIPTION SCOPE & PRICING
+Provider grants Customer access to Adobe Creative Cloud Enterprise and Document Cloud services.
+Total Annual Contract Value: $24,000.00 USD (payable annually in advance).
+Allocated Seats: 50 Named User Licenses.
+Current Active Utilization: 21 of 50 assigned seats (41% active utilization rate observed during the last quarterly audit).
+
+2. TERM AND AUTOMATIC RENEWAL
+2.1 Term: This Agreement is effective for an initial period of twelve (12) months, terminating on October 18, 2026 ("Expiration Date").
+2.2 Automatic Renewal: UNLESS EITHER PARTY PROVIDES WRITTEN NOTICE OF NON-RENEWAL AT LEAST THIRTY (30) DAYS PRIOR TO THE EXPIRATION DATE (ON OR BEFORE SEPTEMBER 18, 2026), THIS AGREEMENT SHALL AUTOMATICALLY RENEW FOR A SUCCESSIVE TWELVE (12) MONTH TERM AT PROVIDER'S THEN-CURRENT STANDARD LIST PRICE.
+
+3. TERMINATION & CANCELLATION NOTICE
+3.1 Written notice of termination or intent not to renew must be formally submitted to renewals@adobe.com or through the Adobe Admin Console.
+3.2 Failure to submit timely written notice by September 18, 2026 will irrevocably commit Customer to the subsequent annual payment of $24,000.00 USD.
+
+4. GOVERNING LAW & COMPLIANCE
+This Agreement shall be governed by the laws of Ireland, subject to mandatory local consumer and commercial statutory protections.

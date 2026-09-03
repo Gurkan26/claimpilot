@@ -1,0 +1,40 @@
+TAX INVOICE & PAYMENT DEMAND
+
+INVOICE DETAILS:
+Invoice Number: INV-AWS-2026-9812
+Invoice Date: September 01, 2026
+Payment Due Date: September 15, 2026 (Net 14 Days)
+Currency: EUR
+
+ISSUER / SERVICE PROVIDER:
+Amazon Web Services EMEA SARL
+38 Avenue John F. Kennedy, L-1855, Luxembourg
+VAT Registration Number: LU 26375245
+Support Contact: aws-emea-receivables@amazon.com
+
+BILL TO / CUSTOMER:
+Acme Global Teknoloji A.S.
+Levent Buyukdere Caddesi No: 195, Istanbul, Turkiye
+Attention: Mehmet Demir (Finance Director)
+Email: finance@acmeglobal.com
+Phone: +90 212 355 78 90
+
+SUMMARY OF CHARGES (Billing Period: August 01, 2026 - August 31, 2026):
+1. Amazon Elastic Compute Cloud (EC2) - Production Cluster: €2,150.00
+2. Amazon Relational Database Service (RDS) Multi-AZ PostgreSQL: €650.00
+3. Amazon Simple Storage Service (S3) & CloudFront Data Transfer: €200.00
+--------------------------------------------------------------------------
+Subtotal:                                                   €3,000.00
+Value Added Tax (VAT 15%):                                    €450.00
+TOTAL AMOUNT DUE:                                           €3,450.00
+
+PAYMENT TERMS & LATE PENALTY NOTICE:
+Payment must be initiated to reach Issuer's account on or before September 15, 2026.
+Any unpaid balance after the due date shall accrue a late payment interest rate of 1.5% per month or the statutory maximum, whichever is lower. Continued delinquency exceeding 14 days post-due may lead to temporary suspension of AWS account resources and cloud endpoints.
+
+Remittance Details:
+Beneficiary: Amazon Web Services EMEA SARL
+Bank: Deutsche Bank AG, Frankfurt
+IBAN: DE89370400440532013000
+BIC/SWIFT: DEUTDEDDFXX
+Payment Reference: INV-AWS-2026-9812 / AcmeGlobal
