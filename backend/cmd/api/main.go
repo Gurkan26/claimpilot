@@ -16,6 +16,7 @@ import (
 	mktAgent "github.com/masterfabric-go/masterfabric/internal/agent/marketplace"
 	"github.com/masterfabric-go/masterfabric/internal/agent/orchestrator"
 	"github.com/masterfabric-go/masterfabric/internal/agent/verifier"
+	adminUsecase "github.com/masterfabric-go/masterfabric/internal/application/admin/usecase"
 	dashboardUsecase "github.com/masterfabric-go/masterfabric/internal/application/dashboard/usecase"
 	docUsecase "github.com/masterfabric-go/masterfabric/internal/application/document/usecase"
 	mktUsecase "github.com/masterfabric-go/masterfabric/internal/application/marketplace/usecase"
@@ -23,6 +24,7 @@ import (
 	docParser "github.com/masterfabric-go/masterfabric/internal/domain/document/parser"
 	docStorage "github.com/masterfabric-go/masterfabric/internal/domain/document/storage"
 	graphqlServer "github.com/masterfabric-go/masterfabric/internal/infrastructure/graphql"
+	adminHttpHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/admin"
 	dashboardHttpHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/dashboard"
 	docHttpHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/document"
 	mcpHttpHandler "github.com/masterfabric-go/masterfabric/internal/infrastructure/http/handler/mcp"
@@ -34,6 +36,7 @@ import (
 	mongoObl "github.com/masterfabric-go/masterfabric/internal/infrastructure/mongodb/obligation"
 	"github.com/masterfabric-go/masterfabric/internal/mcp"
 	mcpCalendar "github.com/masterfabric-go/masterfabric/internal/mcp/calendar"
+	mcpDeepWiki "github.com/masterfabric-go/masterfabric/internal/mcp/deepwiki"
 	mcpGmail "github.com/masterfabric-go/masterfabric/internal/mcp/gmail"
 	mcpSlack "github.com/masterfabric-go/masterfabric/internal/mcp/slack"
 	"github.com/masterfabric-go/masterfabric/internal/pii"
@@ -105,12 +108,21 @@ func run() error {
 		)
 	}
 
+	// Dynamic LLM providers (hot-swappable at runtime via Admin Harness)
+	dynAnalyst := llmclient.NewDynamicProvider("analyst", analystProvider, cfg.LLMAnalyst, log)
+	dynVerifier := llmclient.NewDynamicProvider("verifier", verifierProvider, cfg.LLMVerifier, log)
+
 	// Initialize MCP adapters
 	mcpRegistry := mcp.NewRegistry()
 	mcpRegistry.Register(mcpGmail.New(log))
 	mcpRegistry.Register(mcpCalendar.New(log))
 	mcpRegistry.Register(mcpSlack.New(log))
+	mcpRegistry.Register(mcpDeepWiki.New(cfg.Admin.DeepWikiURL, log))
 	log.Info("MCP adapters registered", "adapters", mcpRegistry.List())
+
+	// Initialize Admin & Agent Harness Use Case and Handler
+	harnessUC := adminUsecase.NewHarnessUseCase(dynAnalyst, dynVerifier, mcpRegistry, cfg.Admin, log)
+	adminHandler := adminHttpHandler.NewHandler(harnessUC)
 
 	// Initialize PII redactor
 	redactor := pii.NewPatternRedactor()
@@ -138,15 +150,15 @@ func run() error {
 		oblRepo := mongoObl.NewMongoRepository(mongoDB)
 		mktRepo := mongoMkt.NewMongoRepository(mongoDB)
 
-		// Agents
+		// Agents (using dynamic providers for hot-swappable inference)
 		var analystAgent *analyst.Analyst
 		var verifierAgent *verifier.Verifier
 
-		if analystProvider != nil {
-			analystAgent = analyst.New(analystProvider, log)
+		if dynAnalyst != nil {
+			analystAgent = analyst.New(dynAnalyst, log)
 		}
-		if verifierProvider != nil {
-			verifierAgent = verifier.New(verifierProvider, log)
+		if dynVerifier != nil {
+			verifierAgent = verifier.New(dynVerifier, log)
 		}
 
 		// Orchestrator
@@ -209,8 +221,8 @@ func run() error {
 			OblRepo:  oblRepo,
 			MktRepo:  mktRepo,
 			MCPReg:   mcpRegistry,
-			Analyst:  analystProvider,
-			Verifier: verifierProvider,
+			Analyst:  dynAnalyst,
+			Verifier: dynVerifier,
 			Logger:   log,
 		})
 		dashboardHandler = dashboardHttpHandler.NewHandler(dashboardUC)
@@ -242,7 +254,7 @@ func run() error {
 		resolver := graphqlServer.NewResolver(
 			docRepo, oblRepo, mktRepo,
 			orch, mcpRegistry,
-			analystProvider, verifierProvider,
+			dynAnalyst, dynVerifier,
 			log,
 		)
 		graphqlHandler = graphqlServer.NewServer(resolver, log)
@@ -298,6 +310,15 @@ func run() error {
 	r.Route("/api/v1/marketplace", func(sub chi.Router) {
 		if marketplaceHandler != nil {
 			marketplaceHandler.Routes(sub)
+		} else {
+			sub.HandleFunc("/*", unavailableHandler)
+		}
+	})
+
+	// Admin & Agent Harness REST API routes
+	r.Route("/api/v1/admin", func(sub chi.Router) {
+		if adminHandler != nil {
+			adminHandler.Routes(sub)
 		} else {
 			sub.HandleFunc("/*", unavailableHandler)
 		}

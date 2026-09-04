@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { TitleBar } from './components/TitleBar'
 import { Sidebar, TabType } from './components/Sidebar'
@@ -7,7 +7,9 @@ import { ObligationsView } from './components/ObligationsView'
 import { MarketplaceView } from './components/MarketplaceView'
 import { DocumentsView } from './components/DocumentsView'
 import { AuditLogView } from './components/AuditLogView'
-import { AuthModal } from './components/AuthModal'
+import { AdminView } from './components/AdminView'
+import { LoginScreen } from './components/LoginScreen'
+import { ToastContainer, useToast } from './components/Toast'
 import { api } from './services/api'
 import {
   DashboardSummary,
@@ -19,9 +21,17 @@ import {
 } from './types'
 
 const AppContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard')
+  const { user, isAuthenticated, isAdmin, t } = useAuth()
+  const [activeTab, setActiveTab] = useState<TabType>(() => (isAdmin ? 'admin' : 'dashboard'))
   const [isBackendOnline, setIsBackendOnline] = useState(false)
-  const { user, t } = useAuth()
+  const { toasts, addToast, removeToast } = useToast()
+
+  // Auto-switch to admin tab if user logs in as admin
+  useEffect(() => {
+    if (isAdmin) {
+      setActiveTab('admin')
+    }
+  }, [isAdmin])
 
   // State
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
@@ -32,7 +42,7 @@ const AppContent: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([])
 
   // Load data
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const isOnline = await api.checkHealth()
     setIsBackendOnline(isOnline)
 
@@ -55,123 +65,144 @@ const AppContent: React.FC = () => {
     } catch (e) {
       console.error('Failed to load application data:', e)
     }
-  }
+  }, [])
 
   useEffect(() => {
+    if (!isAuthenticated) return
     loadData()
     const interval = setInterval(loadData, 20000)
     return () => clearInterval(interval)
-  }, [])
+  }, [isAuthenticated, loadData])
 
-  // Action handlers
+  // Action handlers with toast notifications
   const handleApprove = async (id: string) => {
     try {
       await api.approveObligation(id, true)
+      addToast('success', t.toastApproved)
       if (window.claimpilotDesktop) {
-        window.claimpilotDesktop.notify('ClaimPilot', 'Yükümlülük onaylandı ve MCP eylemi başarıyla çalıştırıldı.')
+        window.claimpilotDesktop.notify('ClaimPilot', t.toastApproved)
       }
       loadData()
     } catch (e: any) {
-      alert(`Approval error: ${e.message}`)
+      addToast('error', `${t.toastError} ${e.message}`)
     }
   }
 
   const handleDismiss = async (id: string, reason: string) => {
     try {
       await api.dismissObligation(id, reason)
+      addToast('info', t.toastDismissed)
       loadData()
     } catch (e: any) {
-      alert(`Dismiss error: ${e.message}`)
+      addToast('error', `${t.toastError} ${e.message}`)
     }
   }
 
   const handleTriggerRFQ = async (oppId: string) => {
     try {
       await api.triggerRFQ(oppId)
+      addToast('success', t.toastRfqCollected)
       if (window.claimpilotDesktop) {
-        window.claimpilotDesktop.notify('ClaimPilot RFQ', 'Tedarikçi teklifleri toplandı ve Verifier risk skoru hesaplandı.')
+        window.claimpilotDesktop.notify('ClaimPilot RFQ', t.toastRfqCollected)
       }
       loadData()
     } catch (e: any) {
-      alert(`RFQ error: ${e.message}`)
+      addToast('error', `${t.toastError} ${e.message}`)
     }
   }
 
   const handleAcceptBid = async (oppId: string, bidId: string) => {
     try {
-      const res = await api.acceptBid(oppId, bidId)
+      await api.acceptBid(oppId, bidId)
+      addToast('success', t.toastDealClosed)
       if (window.claimpilotDesktop) {
-        window.claimpilotDesktop.notify('Anlaşma Bağlandı!', res.message || 'Yeni tedarikçiye geçiş tamamlandı.')
+        window.claimpilotDesktop.notify('Anlaşma Bağlandı!', t.toastDealClosed)
       }
       loadData()
     } catch (e: any) {
-      alert(`Accept bid error: ${e.message}`)
+      addToast('error', `${t.toastError} ${e.message}`)
     }
   }
 
   const handleUploadFile = async (file: File) => {
     try {
       await api.uploadDocument(file)
+      addToast('success', `${t.toastUploadSuccess} (${file.name})`)
       if (window.claimpilotDesktop) {
         window.claimpilotDesktop.notify('Belge Analiz Edildi', `${file.name} başarıyla ayrıştırıldı.`)
       }
       loadData()
     } catch (e: any) {
-      alert(`Upload error: ${e.message}`)
+      addToast('error', `${t.toastError} ${e.message}`)
     }
+  }
+
+  // If not authenticated, show login
+  if (!isAuthenticated) {
+    return (
+      <>
+        <LoginScreen />
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </>
+    )
   }
 
   const pendingCount = obligations.filter((o) => o.status === 'PENDING_APPROVAL').length
   const dealsCount = opportunities.filter((o) => o.status === 'MATCHED').length
 
   return (
-    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
-      <TitleBar isBackendOnline={isBackendOnline} />
+    <div className="app-root-wrapper">
+      <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+        <TitleBar isBackendOnline={isBackendOnline} />
 
-      <div className="app-shell">
-        <Sidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          pendingCount={pendingCount}
-          dealsCount={dealsCount}
-        />
+        <div className="app-shell">
+          <Sidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            pendingCount={pendingCount}
+            dealsCount={dealsCount}
+          />
 
-        <main className="app-content">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              summary={summary}
-              onApprove={handleApprove}
-              onNavigateTab={setActiveTab}
-            />
-          )}
+          <main className="app-content">
+            {activeTab === 'dashboard' && (
+              <DashboardView
+                summary={summary}
+                onApprove={handleApprove}
+                onNavigateTab={setActiveTab}
+              />
+            )}
 
-          {activeTab === 'obligations' && (
-            <ObligationsView
-              obligations={obligations}
-              onApprove={handleApprove}
-              onDismiss={handleDismiss}
-            />
-          )}
+            {activeTab === 'obligations' && (
+              <ObligationsView
+                obligations={obligations}
+                onApprove={handleApprove}
+                onDismiss={handleDismiss}
+              />
+            )}
 
-          {activeTab === 'marketplace' && (
-            <MarketplaceView
-              opportunities={opportunities}
-              metrics={metrics}
-              onTriggerRFQ={handleTriggerRFQ}
-              onAcceptBid={handleAcceptBid}
-            />
-          )}
+            {activeTab === 'marketplace' && (
+              <MarketplaceView
+                opportunities={opportunities}
+                metrics={metrics}
+                onTriggerRFQ={handleTriggerRFQ}
+                onAcceptBid={handleAcceptBid}
+              />
+            )}
 
-          {activeTab === 'documents' && (
-            <DocumentsView documents={documents} onUploadFile={handleUploadFile} />
-          )}
+            {activeTab === 'documents' && (
+              <DocumentsView documents={documents} onUploadFile={handleUploadFile} />
+            )}
 
-          {activeTab === 'audit' && <AuditLogView logs={auditLogs} />}
-        </main>
+            {activeTab === 'audit' && <AuditLogView logs={auditLogs} />}
+
+            {activeTab === 'admin' && (
+              <AdminView onShowToast={(msg, type) => addToast(type, msg)} />
+            )}
+          </main>
+        </div>
       </div>
 
-      {/* Auth & Account Switcher Modal */}
-      <AuthModal />
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   )
 }

@@ -8,10 +8,12 @@ import {
   Zap,
   Building2,
   User,
+  LogOut,
+  Cpu,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
-export type TabType = 'dashboard' | 'obligations' | 'marketplace' | 'documents' | 'audit'
+export type TabType = 'dashboard' | 'obligations' | 'marketplace' | 'documents' | 'audit' | 'admin'
 
 interface SidebarProps {
   activeTab: TabType
@@ -26,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pendingCount,
   dealsCount,
 }) => {
-  const { user, switchAccountType, t } = useAuth()
+  const { user, switchAccountType, logout, isAdmin, t } = useAuth()
 
   return (
     <aside className="app-sidebar">
@@ -106,6 +108,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>{t.auditTrail}</span>
             </div>
           </button>
+
+          {/* Admin & Agent Harness Tab */}
+          <button
+            className={`nav-item ${activeTab === 'admin' ? 'active admin-active' : ''}`}
+            onClick={() => onTabChange('admin')}
+            style={{
+              marginTop: 10,
+              background: activeTab === 'admin' ? 'rgba(168, 85, 247, 0.18)' : 'rgba(168, 85, 247, 0.05)',
+              borderColor: activeTab === 'admin' ? '#a855f7' : 'rgba(168, 85, 247, 0.2)',
+            }}
+          >
+            <div className="nav-item-content">
+              <Cpu size={16} color={activeTab === 'admin' ? '#c084fc' : '#a855f7'} />
+              <span style={{ color: activeTab === 'admin' ? '#f3e8ff' : '#d8b4fe', fontWeight: 600 }}>
+                {t.adminPanel}
+              </span>
+            </div>
+            <span
+              className="nav-badge"
+              style={{
+                backgroundColor: 'rgba(168, 85, 247, 0.25)',
+                color: '#e9d5ff',
+                borderColor: 'rgba(168, 85, 247, 0.4)',
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: 0.5,
+              }}
+            >
+              {isAdmin ? 'ADMIN' : 'HARNESS'}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -120,6 +153,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
         </div>
+
+        <button className="sidebar-logout-btn" onClick={logout}>
+          <LogOut size={14} />
+          <span>{t.signOut}</span>
+        </button>
       </div>
     </aside>
   )

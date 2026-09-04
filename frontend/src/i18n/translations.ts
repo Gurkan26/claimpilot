@@ -20,6 +20,18 @@ export interface TranslationDict {
   personalBadge: string
   activeAiEmployee: string
   mcpReady: string
+  signOut: string
+
+  // Login Screen
+  loginTitle: string
+  loginSubtitle: string
+  loginWelcome: string
+  loginFeature1: string
+  loginFeature2: string
+  loginFeature3: string
+  loginFeature4: string
+  loginQuickAccess: string
+  loginOrCustom: string
 
   // Dashboard
   greetingMorning: string
@@ -62,6 +74,8 @@ export interface TranslationDict {
   actionsCol: string
   noObligations: string
   dismissPrompt: string
+  dismissReason: string
+  enterReason: string
   confirm: string
   cancel: string
 
@@ -111,6 +125,45 @@ export interface TranslationDict {
   quickDemoLoginCorporate: string
   quickDemoLoginPersonal: string
   continueButton: string
+
+  // Toast Notifications
+  toastApproved: string
+  toastDismissed: string
+  toastRfqCollected: string
+  toastDealClosed: string
+  toastUploadSuccess: string
+  toastError: string
+
+  // Admin & Agent Harness
+  adminPanel: string
+  adminBadge: string
+  adminLoginTitle: string
+  adminPasswordLabel: string
+  adminPasswordPlaceholder: string
+  adminLoginButton: string
+  adminWrongPassword: string
+  adminWelcome: string
+  adminSubtitle: string
+  tabLlmConfig: string
+  tabMcpHarness: string
+  tabGuardrails: string
+  tabSimulator: string
+  analystRoleTitle: string
+  verifierRoleTitle: string
+  llmProvider: string
+  llmEndpoint: string
+  llmModel: string
+  llmApiKey: string
+  llmTemperature: string
+  llmMaxTokens: string
+  testConnection: string
+  applyChanges: string
+  hotSwapSuccess: string
+  deepWikiDesc: string
+  addMcpServer: string
+  runSimulation: string
+  humanApprovalToggle: string
+  piiStrictness: string
 }
 
 export const translations: Record<Language, TranslationDict> = {
@@ -134,6 +187,18 @@ export const translations: Record<Language, TranslationDict> = {
     personalBadge: 'BİREYSEL',
     activeAiEmployee: 'Otonom AI Çalışanı',
     mcpReady: 'MCP Aktif & Hazır',
+    signOut: 'Oturumu Kapat',
+
+    // Login Screen
+    loginTitle: 'ClaimPilot',
+    loginSubtitle: 'Otonom AI Çalışanınız — Sözleşme, yükümlülük ve tedarikçi yönetimi tek ekranda.',
+    loginWelcome: 'Hoş Geldiniz',
+    loginFeature1: 'Sözleşme ve fatura otomatik analizi',
+    loginFeature2: 'Kritik vade ve yükümlülük takibi',
+    loginFeature3: 'Tedarikçi pazar yeri ve otomatik RFQ',
+    loginFeature4: 'KVKK/GDPR uyumlu denetim izi',
+    loginQuickAccess: 'Hızlı Demo Erişimi',
+    loginOrCustom: 'veya kendi bilgilerinizle giriş yapın',
 
     // Dashboard
     greetingMorning: 'Günaydın',
@@ -176,6 +241,8 @@ export const translations: Record<Language, TranslationDict> = {
     actionsCol: 'İŞLEM',
     noObligations: 'Kriterlere uygun yükümlülük bulunamadı.',
     dismissPrompt: 'Reddetme nedeni belirtin:',
+    dismissReason: 'Reddetme Nedeni',
+    enterReason: 'Neden belirtiniz...',
     confirm: 'Tamam',
     cancel: 'İptal',
 
@@ -225,6 +292,45 @@ export const translations: Record<Language, TranslationDict> = {
     quickDemoLoginCorporate: '🏢 Kurumsal Giriş Yap (Acme Holding A.Ş.)',
     quickDemoLoginPersonal: '👤 Bireysel Giriş Yap (Gürkan Şentürk)',
     continueButton: 'Giriş Yap ve Başla',
+
+    // Toast Notifications
+    toastApproved: 'Yükümlülük başarıyla onaylandı ve MCP eylemi tetiklendi.',
+    toastDismissed: 'Yükümlülük reddedildi.',
+    toastRfqCollected: 'Tedarikçi teklifleri başarıyla toplandı!',
+    toastDealClosed: 'Anlaşma başarıyla bağlandı! Geçiş süreci başlatıldı.',
+    toastUploadSuccess: 'Belge başarıyla yüklendi ve analiz ediliyor.',
+    toastError: 'İşlem sırasında bir hata oluştu.',
+
+    // Admin & Agent Harness
+    adminPanel: 'Agent Harness & Yönetici',
+    adminBadge: 'ADMİN',
+    adminLoginTitle: 'Agent Harness Yönetici Girişi',
+    adminPasswordLabel: 'Yönetici Şifresi',
+    adminPasswordPlaceholder: 'Şifrenizi girin (varsayılan: admin123)',
+    adminLoginButton: 'Yönetici Konsoluna Giriş',
+    adminWrongPassword: 'Hatalı şifre! (Varsayılan: admin123)',
+    adminWelcome: 'Agent Harness & LLM Orkestrasyonu',
+    adminSubtitle: 'Ollama üzerinde çift-rol LLM motoru, DeepWiki ve harici MCP araç bağlantıları yönetimi.',
+    tabLlmConfig: 'Çift-LLM Motoru (Ollama)',
+    tabMcpHarness: 'MCP Bağlantıları & DeepWiki',
+    tabGuardrails: 'Harness İlkeleri & Güvenlik',
+    tabSimulator: 'Canlı Agent Pipeline Simülatörü',
+    analystRoleTitle: 'Rol 1: Analist Ajanı (Analyst Agent)',
+    verifierRoleTitle: 'Rol 2: Doğrulayıcı Ajanı (Verifier Agent)',
+    llmProvider: 'LLM Sağlayıcı',
+    llmEndpoint: 'Endpoint URL',
+    llmModel: 'Model Adı',
+    llmApiKey: 'API Anahtarı (Opsiyonel)',
+    llmTemperature: 'Sıcaklık (Temperature)',
+    llmMaxTokens: 'Maksimum Token',
+    testConnection: 'Bağlantıyı Test Et',
+    applyChanges: 'Değişiklikleri Kaydet & Hot-Swap',
+    hotSwapSuccess: 'LLM ve Harness ayarları başarıyla güncellendi ve uygulandı!',
+    deepWikiDesc: 'Kurumsal bilgi tabanı, mevzuat, sözleşme emsalleri ve şirket içi yönerge arama aracı.',
+    addMcpServer: '+ Yeni MCP Sunucusu Ekle',
+    runSimulation: 'Harness Pipeline Simülasyonu Çalıştır',
+    humanApprovalToggle: 'MCP Eylemlerinde İnsan Onayı Zorunlu (Human-in-the-Loop)',
+    piiStrictness: 'KVKK/GDPR PII Maskeleme Düzeyi',
   },
   en: {
     // Navigation & Shell
@@ -246,6 +352,18 @@ export const translations: Record<Language, TranslationDict> = {
     personalBadge: 'PERSONAL',
     activeAiEmployee: 'Autonomous AI Employee',
     mcpReady: 'MCP Tools Active',
+    signOut: 'Sign Out',
+
+    // Login Screen
+    loginTitle: 'ClaimPilot',
+    loginSubtitle: 'Your Autonomous AI Employee — Contract, obligation, and supplier management in one place.',
+    loginWelcome: 'Welcome',
+    loginFeature1: 'Automatic contract & invoice analysis',
+    loginFeature2: 'Critical deadline & obligation tracking',
+    loginFeature3: 'Supplier marketplace & automated RFQ',
+    loginFeature4: 'KVKK/GDPR compliant audit trail',
+    loginQuickAccess: 'Quick Demo Access',
+    loginOrCustom: 'or sign in with your credentials',
 
     // Dashboard
     greetingMorning: 'Good morning',
@@ -288,6 +406,8 @@ export const translations: Record<Language, TranslationDict> = {
     actionsCol: 'ACTION',
     noObligations: 'No obligations found matching your criteria.',
     dismissPrompt: 'Specify reason for dismissal:',
+    dismissReason: 'Dismissal Reason',
+    enterReason: 'Enter reason...',
     confirm: 'Confirm',
     cancel: 'Cancel',
 
@@ -337,5 +457,44 @@ export const translations: Record<Language, TranslationDict> = {
     quickDemoLoginCorporate: '🏢 Sign In as Corporate (Acme Holding A.Ş.)',
     quickDemoLoginPersonal: '👤 Sign In as Personal (Gürkan Şentürk)',
     continueButton: 'Sign In & Enter Dashboard',
+
+    // Toast Notifications
+    toastApproved: 'Obligation approved and MCP action triggered successfully.',
+    toastDismissed: 'Obligation dismissed.',
+    toastRfqCollected: 'Supplier quotes collected successfully!',
+    toastDealClosed: 'Deal closed successfully! Vendor switch initiated.',
+    toastUploadSuccess: 'Document uploaded and analysis in progress.',
+    toastError: 'An error occurred during the operation.',
+
+    // Admin & Agent Harness
+    adminPanel: 'Agent Harness & Admin',
+    adminBadge: 'ADMIN',
+    adminLoginTitle: 'Agent Harness Admin Login',
+    adminPasswordLabel: 'Admin Password',
+    adminPasswordPlaceholder: 'Enter password (default: admin123)',
+    adminLoginButton: 'Enter Admin Console',
+    adminWrongPassword: 'Invalid password! (Default: admin123)',
+    adminWelcome: 'Agent Harness & LLM Orchestration',
+    adminSubtitle: 'Manage dual-role Ollama LLMs, DeepWiki knowledge base, and external MCP tool adapters.',
+    tabLlmConfig: 'Dual-LLM Engine (Ollama)',
+    tabMcpHarness: 'MCP Adapters & DeepWiki',
+    tabGuardrails: 'Harness Guardrails & Policies',
+    tabSimulator: 'Live Agent Pipeline Simulator',
+    analystRoleTitle: 'Role 1: Analyst Agent',
+    verifierRoleTitle: 'Role 2: Verifier Agent',
+    llmProvider: 'LLM Provider',
+    llmEndpoint: 'Endpoint URL',
+    llmModel: 'Model Name',
+    llmApiKey: 'API Key (Optional)',
+    llmTemperature: 'Temperature',
+    llmMaxTokens: 'Max Tokens',
+    testConnection: 'Test Connection',
+    applyChanges: 'Save & Hot-Swap',
+    hotSwapSuccess: 'LLM & Harness configuration updated and hot-swapped!',
+    deepWikiDesc: 'Enterprise knowledge base, compliance documentation, and contract precedent retrieval tool.',
+    addMcpServer: '+ Add New MCP Server',
+    runSimulation: 'Execute Harness Pipeline',
+    humanApprovalToggle: 'Require Human Approval for MCP Actions (Human-in-the-Loop)',
+    piiStrictness: 'KVKK/GDPR PII Masking Strictness',
   },
 }

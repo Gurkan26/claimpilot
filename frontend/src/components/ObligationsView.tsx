@@ -7,6 +7,7 @@ import {
   CheckCircle,
   XCircle,
   Search,
+  X,
 } from 'lucide-react'
 import { Obligation } from '../types'
 import { useAuth } from '../context/AuthContext'
@@ -25,6 +26,8 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
   const { user, t } = useAuth()
   const [filterDays, setFilterDays] = useState<number>(30)
   const [searchQuery, setSearchQuery] = useState('')
+  const [dismissingId, setDismissingId] = useState<string | null>(null)
+  const [dismissReason, setDismissReason] = useState('')
 
   const isB2B = user.accountType === 'b2b'
 
@@ -117,6 +120,24 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
     }
   }
 
+  const handleDismissClick = (id: string) => {
+    setDismissingId(id)
+    setDismissReason('')
+  }
+
+  const handleDismissConfirm = () => {
+    if (dismissingId && dismissReason.trim()) {
+      onDismiss(dismissingId, dismissReason.trim())
+      setDismissingId(null)
+      setDismissReason('')
+    }
+  }
+
+  const handleDismissCancel = () => {
+    setDismissingId(null)
+    setDismissReason('')
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -135,16 +156,10 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
             placeholder={t.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="form-input"
             style={{
               width: '100%',
-              padding: '9px 12px 9px 36px',
-              backgroundColor: 'var(--bg-surface)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--text-primary)',
-              fontSize: 13,
-              outline: 'none',
-              fontFamily: 'inherit',
+              paddingLeft: 36,
             }}
           />
         </div>
@@ -162,6 +177,42 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
           ))}
         </div>
       </div>
+
+      {/* Dismiss Reason Inline Modal */}
+      {dismissingId && (
+        <div className="dismiss-reason-bar">
+          <div className="dismiss-reason-content">
+            <span className="dismiss-reason-label">{t.dismissReason}:</span>
+            <input
+              type="text"
+              className="form-input dismiss-reason-input"
+              placeholder={t.enterReason}
+              value={dismissReason}
+              onChange={(e) => setDismissReason(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleDismissConfirm()
+                if (e.key === 'Escape') handleDismissCancel()
+              }}
+              autoFocus
+            />
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 12, padding: '5px 12px' }}
+              onClick={handleDismissConfirm}
+              disabled={!dismissReason.trim()}
+            >
+              {t.confirm}
+            </button>
+            <button
+              className="btn btn-secondary"
+              style={{ fontSize: 12, padding: '5px 10px' }}
+              onClick={handleDismissCancel}
+            >
+              <X size={13} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Obligations Table */}
       <div className="table-container">
@@ -192,7 +243,7 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
                 )
 
                 return (
-                  <tr key={o.id}>
+                  <tr key={o.id} className={dismissingId === o.id ? 'row-highlight' : ''}>
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{o.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -243,7 +294,7 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
                             <button
                               className="btn btn-secondary"
                               style={{ fontSize: 12, padding: '4px 8px' }}
-                              onClick={() => onDismiss(o.id, 'Dismissed')}
+                              onClick={() => handleDismissClick(o.id)}
                             >
                               <XCircle size={13} />
                             </button>

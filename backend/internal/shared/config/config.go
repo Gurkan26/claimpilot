@@ -21,6 +21,14 @@ type Config struct {
 	MongoDB     MongoDBConfig
 	LLMAnalyst  LLMConfig
 	LLMVerifier LLMConfig
+	Admin       AdminConfig
+}
+
+// AdminConfig holds administration and Agent Harness parameters.
+type AdminConfig struct {
+	Password             string
+	DeepWikiURL          string
+	RequireHumanApproval bool
 }
 
 // WebSocketConfig holds real-time WebSocket settings.
@@ -191,6 +199,11 @@ func Load() *Config {
 			APIKey:     envOrDefault("LLM_VERIFIER_API_KEY", ""),
 			Timeout:    time.Duration(envOrDefaultInt("LLM_VERIFIER_TIMEOUT_SECONDS", 60)) * time.Second,
 			MaxRetries: envOrDefaultInt("LLM_VERIFIER_MAX_RETRIES", 3),
+		},
+		Admin: AdminConfig{
+			Password:             envOrDefault("ADMIN_PASSWORD", "admin123"),
+			DeepWikiURL:          envOrDefault("DEEPWIKI_MCP_URL", "http://localhost:8899/mcp/deepwiki/sse"),
+			RequireHumanApproval: envOrDefault("HARNESS_REQUIRE_HUMAN_APPROVAL", "true") == "true",
 		},
 	}
 }

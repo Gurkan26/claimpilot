@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"sync"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
@@ -50,37 +51,94 @@ type Adapter interface {
 	SupportedActions() []ActionType
 }
 
+// AdapterInfo provides runtime metadata for admin console.
+type AdapterInfo struct {
+	Name             string       `json:"name"`
+	Enabled          bool         `json:"enabled"`
+	SupportedActions []ActionType `json:"supported_actions"`
+}
+
 // Registry holds all registered MCP adapters.
 type Registry struct {
 	adapters map[string]Adapter
+	disabled map[string]bool
+	mu       sync.RWMutex
 }
 
 // NewRegistry creates an empty adapter registry.
 func NewRegistry() *Registry {
 	return &Registry{
 		adapters: make(map[string]Adapter),
+		disabled: make(map[string]bool),
 	}
 }
 
 // Register adds an adapter to the registry.
 func (r *Registry) Register(adapter Adapter) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.adapters[adapter.Name()] = adapter
 }
 
-// Get retrieves an adapter by name.
+// Get retrieves an adapter by name. Returns false if not registered or disabled.
 func (r *Registry) Get(name string) (Adapter, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.disabled[name] {
+		return nil, false
+	}
 	a, ok := r.adapters[name]
 	return a, ok
 }
 
+// Enable activates an adapter.
+func (r *Registry) Enable(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.disabled, name)
+}
+
+// Disable deactivates an adapter.
+func (r *Registry) Disable(name string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.disabled[name] = true
+}
+
+// IsEnabled returns true if adapter exists and is not disabled.
+func (r *Registry) IsEnabled(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, exists := r.adapters[name]
+	return exists && !r.disabled[name]
+}
+
 // List returns all registered adapter names.
 func (r *Registry) List() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	names := make([]string, 0, len(r.adapters))
 	for name := range r.adapters {
 		names = append(names, name)
 	}
 	return names
 }
+
+// ListDetails returns details and enabled status for all adapters.
+func (r *Registry) ListDetails() []AdapterInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	list := make([]AdapterInfo, 0, len(r.adapters))
+	for name, a := range r.adapters {
+		list = append(list, AdapterInfo{
+			Name:             name,
+			Enabled:          !r.disabled[name],
+			SupportedActions: a.SupportedActions(),
+		})
+	}
+	return list
+}
+
 
 // AuditEntry represents an auditable record of an MCP action.
 type AuditEntry struct {

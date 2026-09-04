@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   UploadCloud,
   FileText,
@@ -17,6 +17,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, onUploa
   const { t } = useAuth()
   const [isDragOver, setIsDragOver] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
@@ -33,11 +34,32 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, onUploa
     }
   }
 
-  const handleNativePick = async () => {
+  const handleFilePick = async () => {
+    // If running in Electron, try native dialog first
     if (window.claimpilotDesktop) {
       const filePath = await window.claimpilotDesktop.openFileDialog()
       if (filePath) {
         window.claimpilotDesktop.notify('Document Intake', `Selected ${filePath}`)
+      }
+      return
+    }
+    // Web fallback: trigger hidden file input
+    fileInputRef.current?.click()
+  }
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      const file = files[0]
+      setIsUploading(true)
+      try {
+        await onUploadFile(file)
+      } finally {
+        setIsUploading(false)
+        // Reset input so the same file can be selected again
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
       }
     }
   }
@@ -51,24 +73,36 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ documents, onUploa
         </div>
       </div>
 
+      {/* Hidden file input for web fallback */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.txt,.csv,.md,.doc,.docx"
+        style={{ display: 'none' }}
+        onChange={handleFileInputChange}
+      />
+
       {/* Drag & Drop Upload Zone */}
       <div
-        className={`dropzone ${isDragOver ? 'dragover' : ''}`}
+        className={`dropzone ${isDragOver ? 'dragover' : ''} ${isUploading ? 'uploading' : ''}`}
         onDragOver={(e) => {
           e.preventDefault()
           setIsDragOver(true)
         }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
+        onClick={handleFilePick}
       >
-        <UploadCloud size={36} className="dropzone-icon" />
+        <div className="dropzone-icon-wrapper">
+          <UploadCloud size={36} className="dropzone-icon" />
+        </div>
         <div className="dropzone-title">
           {isUploading ? t.analyzingWithAi : t.dragDropTitle}
         </div>
         <p className="dropzone-desc" style={{ marginBottom: 14 }}>
           {t.dragDropSubtitle}
         </p>
-        <button className="btn btn-secondary" onClick={handleNativePick}>
+        <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); handleFilePick() }}>
           <FolderOpen size={14} /> {t.browseFiles}
         </button>
       </div>

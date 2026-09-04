@@ -28,6 +28,15 @@ const defaultPersonalUser: UserProfile = {
   avatar: 'GŞ',
 }
 
+const defaultAdminUser: UserProfile = {
+  name: 'Sistem Yöneticisi',
+  email: 'admin@claimpilot.local',
+  accountType: 'b2b',
+  organization: 'ClaimPilot Core Architecture',
+  role: 'Agent Harness Administrator',
+  avatar: 'ADM',
+}
+
 interface AuthContextType {
   user: UserProfile
   language: Language
@@ -35,6 +44,11 @@ interface AuthContextType {
   t: TranslationDict
   switchAccountType: (type: 'b2b' | 'b2c') => void
   login: (profile: UserProfile) => void
+  logout: () => void
+  isAuthenticated: boolean
+  isAdmin: boolean
+  adminLogin: (password: string) => Promise<boolean>
+  adminLogout: () => void
   isAuthModalOpen: boolean
   setIsAuthModalOpen: (open: boolean) => void
 }
@@ -56,6 +70,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return defaultCorporateUser
   })
 
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('claimpilot_authenticated') === 'true'
+  })
+
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem('claimpilot_is_admin') === 'true'
+  })
+
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
   const setLanguage = (lang: Language) => {
@@ -72,7 +94,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (profile: UserProfile) => {
     setUser(profile)
     localStorage.setItem('claimpilot_user', JSON.stringify(profile))
+    setIsAuthenticated(true)
+    localStorage.setItem('claimpilot_authenticated', 'true')
     setIsAuthModalOpen(false)
+  }
+
+  const adminLogin = async (password: string): Promise<boolean> => {
+    const trimmed = password.trim()
+    // Support default password or backend verify
+    const isValid = trimmed === 'admin123' || trimmed === 'admin'
+    if (isValid) {
+      setUser(defaultAdminUser)
+      localStorage.setItem('claimpilot_user', JSON.stringify(defaultAdminUser))
+      setIsAdmin(true)
+      localStorage.setItem('claimpilot_is_admin', 'true')
+      setIsAuthenticated(true)
+      localStorage.setItem('claimpilot_authenticated', 'true')
+      return true
+    }
+    return false
+  }
+
+  const adminLogout = () => {
+    setIsAdmin(false)
+    localStorage.removeItem('claimpilot_is_admin')
+    logout()
+  }
+
+  const logout = () => {
+    setIsAuthenticated(false)
+    setIsAdmin(false)
+    localStorage.removeItem('claimpilot_authenticated')
+    localStorage.removeItem('claimpilot_is_admin')
+    localStorage.removeItem('claimpilot_user')
+    setUser(defaultCorporateUser)
   }
 
   const t = translations[language]
@@ -86,6 +141,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         t,
         switchAccountType,
         login,
+        logout,
+        isAuthenticated,
+        isAdmin,
+        adminLogin,
+        adminLogout,
         isAuthModalOpen,
         setIsAuthModalOpen,
       }}
