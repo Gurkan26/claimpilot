@@ -25,6 +25,7 @@ import {
   Code2,
   UserCog,
   KeyRound,
+  Download,
 } from 'lucide-react'
 import {
   HarnessConfig,
@@ -32,6 +33,7 @@ import {
   MCPConfigItem,
   LLMRole,
   SimulationResult,
+  OllamaModelInfo,
 } from '../types'
 import { api } from '../services/api'
 import { useAuth } from '../context/AuthContext'
@@ -83,6 +85,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
   const [newMcpEndpoint, setNewMcpEndpoint] = useState('')
   const [newMcpCategory, setNewMcpCategory] = useState<'knowledge' | 'email' | 'calendar' | 'chat' | 'custom'>('custom')
 
+  // Model management state
+  const [analystModels, setAnalystModels] = useState<OllamaModelInfo[]>([])
+  const [verifierModels, setVerifierModels] = useState<OllamaModelInfo[]>([])
+  const [pullingRole, setPullingRole] = useState<LLMRole | null>(null)
+  const [pullModelName, setPullModelName] = useState('')
+
   useEffect(() => {
     loadConfig()
   }, [])
@@ -92,10 +100,47 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
     try {
       const data = await api.getHarnessConfig()
       setConfig(data)
+      // Also load available models from both Ollama instances
+      loadModels()
     } catch {
       onShowToast('Harness yapılandırması yüklenemedi', 'error')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadModels = async () => {
+    try {
+      const [aModels, vModels] = await Promise.all([
+        api.listOllamaModels('analyst'),
+        api.listOllamaModels('verifier'),
+      ])
+      setAnalystModels(aModels)
+      setVerifierModels(vModels)
+    } catch {
+      // Silently fail - models won't be shown in dropdown
+    }
+  }
+
+  const handlePullModel = async (role: LLMRole) => {
+    if (!pullModelName.trim()) {
+      onShowToast('Lütfen bir model adı girin (Orn: gemma2:2b)', 'error')
+      return
+    }
+    setPullingRole(role)
+    try {
+      const res = await api.pullOllamaModel(role, pullModelName.trim())
+      if (res.success) {
+        onShowToast(`✅ Model "${pullModelName}" başarıyla indirildi!`, 'success')
+        setPullModelName('')
+        loadModels()
+      } else {
+        onShowToast(res.message, 'error')
+      }
+    } catch {
+      onShowToast('Model indirme başarısız oldu', 'error')
+    } finally {
+      setPullingRole(null)
     }
   }
 
@@ -439,8 +484,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="badge badge-success" style={{ fontSize: 11 }}>
-                  ● {config.analystLLM.status === 'connected' ? `Online (${config.analystLLM.lastPingMs || 24}ms)` : 'Offline'}
+                <span className={`badge ${config.analystLLM.status === 'connected' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: 11 }}>
+                  {config.analystLLM.status === 'connected' ? `● Online (${config.analystLLM.lastPingMs || 0}ms)` : '● Offline'}
                 </span>
                 <button
                   className="btn btn-secondary"
@@ -478,18 +523,37 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
 
                 <div>
                   <label className="form-label">{t.llmModel}</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={config.analystLLM.model}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        analystLLM: { ...config.analystLLM, model: e.target.value },
-                      })
-                    }
-                    placeholder="Örn: gemma2:9b, llama3.2:3b"
-                  />
+                  {analystModels.length > 0 ? (
+                    <select
+                      className="form-input"
+                      value={config.analystLLM.model}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          analystLLM: { ...config.analystLLM, model: e.target.value },
+                        })
+                      }
+                    >
+                      {analystModels.map((m) => (
+                        <option key={m.name} value={m.name}>
+                          {m.name} ({m.parameter_size || 'N/A'}, {(m.size / 1024 / 1024 / 1024).toFixed(1)}GB)
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={config.analystLLM.model}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          analystLLM: { ...config.analystLLM, model: e.target.value },
+                        })
+                      }
+                      placeholder="Örn: gemma2:2b, llama3.2:3b"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -507,6 +571,36 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
                   }
                   placeholder="http://localhost:11434"
                 />
+              </div>
+
+              {/* Model Pull Section */}
+              <div style={{
+                display: 'flex', gap: 8, alignItems: 'flex-end',
+                padding: '10px 12px',
+                background: 'rgba(56, 189, 248, 0.06)',
+                borderRadius: 8,
+                border: '1px solid rgba(56, 189, 248, 0.15)',
+              }}>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label" style={{ fontSize: 11 }}>Yeni Model İndir (Ollama Pull)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={pullModelName}
+                    onChange={(e) => setPullModelName(e.target.value)}
+                    placeholder="gemma2:2b, qwen2.5:1.5b, llama3.2:3b"
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: 11, whiteSpace: 'nowrap' }}
+                  onClick={() => handlePullModel('analyst')}
+                  disabled={pullingRole === 'analyst'}
+                >
+                  {pullingRole === 'analyst' ? <RefreshCw className="spin" size={12} /> : <Download size={12} />}
+                  <span>{pullingRole === 'analyst' ? 'İndiriliyor...' : 'Model Çek'}</span>
+                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -583,8 +677,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="badge badge-success" style={{ fontSize: 11 }}>
-                  ● {config.verifierLLM.status === 'connected' ? `Online (${config.verifierLLM.lastPingMs || 19}ms)` : 'Offline'}
+                <span className={`badge ${config.verifierLLM.status === 'connected' ? 'badge-success' : 'badge-error'}`} style={{ fontSize: 11 }}>
+                  {config.verifierLLM.status === 'connected' ? `● Online (${config.verifierLLM.lastPingMs || 0}ms)` : '● Offline'}
                 </span>
                 <button
                   className="btn btn-secondary"
@@ -622,18 +716,37 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
 
                 <div>
                   <label className="form-label">{t.llmModel}</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={config.verifierLLM.model}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        verifierLLM: { ...config.verifierLLM, model: e.target.value },
-                      })
-                    }
-                    placeholder="Örn: qwen2.5:7b, mistral:7b"
-                  />
+                  {verifierModels.length > 0 ? (
+                    <select
+                      className="form-input"
+                      value={config.verifierLLM.model}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          verifierLLM: { ...config.verifierLLM, model: e.target.value },
+                        })
+                      }
+                    >
+                      {verifierModels.map((m) => (
+                        <option key={m.name} value={m.name}>
+                          {m.name} ({m.parameter_size || 'N/A'}, {(m.size / 1024 / 1024 / 1024).toFixed(1)}GB)
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={config.verifierLLM.model}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          verifierLLM: { ...config.verifierLLM, model: e.target.value },
+                        })
+                      }
+                      placeholder="Örn: gemma2:2b, llama3.2:3b"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -649,8 +762,38 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
                       verifierLLM: { ...config.verifierLLM, endpoint: e.target.value },
                     })
                   }
-                  placeholder="http://localhost:11434"
+                  placeholder="http://localhost:11435"
                 />
+              </div>
+
+              {/* Model Pull Section */}
+              <div style={{
+                display: 'flex', gap: 8, alignItems: 'flex-end',
+                padding: '10px 12px',
+                background: 'rgba(192, 132, 252, 0.06)',
+                borderRadius: 8,
+                border: '1px solid rgba(192, 132, 252, 0.15)',
+              }}>
+                <div style={{ flex: 1 }}>
+                  <label className="form-label" style={{ fontSize: 11 }}>Yeni Model İndir (Ollama Pull)</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={pullModelName}
+                    onChange={(e) => setPullModelName(e.target.value)}
+                    placeholder="gemma2:2b, qwen2.5:1.5b, llama3.2:3b"
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: 11, whiteSpace: 'nowrap' }}
+                  onClick={() => handlePullModel('verifier')}
+                  disabled={pullingRole === 'verifier'}
+                >
+                  {pullingRole === 'verifier' ? <RefreshCw className="spin" size={12} /> : <Download size={12} />}
+                  <span>{pullingRole === 'verifier' ? 'İndiriliyor...' : 'Model Çek'}</span>
+                </button>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

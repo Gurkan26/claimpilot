@@ -205,3 +205,140 @@ func buildPromptFromMessages(messages []Message) string {
 	}
 	return buf.String()
 }
+
+// ==========================================
+// Ollama Model Management (Admin Operations)
+// ==========================================
+
+// OllamaModelInfo represents a model available on an Ollama instance.
+type OllamaModelInfo struct {
+	Name       string    `json:"name"`
+	Model      string    `json:"model"`
+	Size       int64     `json:"size"`
+	Digest     string    `json:"digest"`
+	ModifiedAt time.Time `json:"modified_at"`
+	Details    struct {
+		Format            string `json:"format"`
+		Family            string `json:"family"`
+		ParameterSize     string `json:"parameter_size"`
+		QuantizationLevel string `json:"quantization_level"`
+	} `json:"details"`
+}
+
+// ollamaTagsResponse is the response from Ollama /api/tags endpoint.
+type ollamaTagsResponse struct {
+	Models []OllamaModelInfo `json:"models"`
+}
+
+// ollamaPullRequest is the request body for Ollama /api/pull endpoint.
+type ollamaPullRequest struct {
+	Name   string `json:"name"`
+	Stream bool   `json:"stream"`
+}
+
+// ollamaPullResponse is the response from Ollama /api/pull endpoint.
+type ollamaPullResponse struct {
+	Status    string `json:"status"`
+	Digest    string `json:"digest,omitempty"`
+	Total     int64  `json:"total,omitempty"`
+	Completed int64  `json:"completed,omitempty"`
+}
+
+// ListOllamaModels fetches available models from an Ollama endpoint.
+// This is a standalone function (not on Provider) because it's an admin operation.
+func ListOllamaModels(ctx context.Context, endpoint string) ([]OllamaModelInfo, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/api/tags", nil)
+	if err != nil {
+		return nil, fmt.Errorf("create list models request: %w", err)
+	}
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("ollama list models failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ollama list models returned status %d", resp.StatusCode)
+	}
+
+	var tagsResp ollamaTagsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&tagsResp); err != nil {
+		return nil, fmt.Errorf("decode ollama tags response: %w", err)
+	}
+
+	return tagsResp.Models, nil
+}
+
+// PullOllamaModel triggers a model pull on an Ollama endpoint.
+// It blocks until the model is fully downloaded (non-streaming).
+func PullOllamaModel(ctx context.Context, endpoint, modelName string) error {
+	// Use a long timeout for model downloads (up to 30 minutes)
+	client := &http.Client{Timeout: 30 * time.Minute}
+
+	pullReq := ollamaPullRequest{
+		Name:   modelName,
+		Stream: false,
+	}
+
+	body, err := json.Marshal(pullReq)
+	if err != nil {
+		return fmt.Errorf("marshal pull request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+"/api/pull", bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create pull request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("ollama pull model failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ollama pull returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var pullResp ollamaPullResponse
+	if err := json.NewDecoder(resp.Body).Decode(&pullResp); err != nil {
+		return fmt.Errorf("decode pull response: %w", err)
+	}
+
+	if pullResp.Status != "success" {
+		return fmt.Errorf("ollama pull status: %s", pullResp.Status)
+	}
+
+	return nil
+}
+
+// CheckOllamaHealth verifies an Ollama endpoint is reachable and measures latency.
+func CheckOllamaHealth(ctx context.Context, endpoint string) (latencyMs int64, err error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	start := time.Now()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"/api/tags", nil)
+	if err != nil {
+		return 0, fmt.Errorf("create health check request: %w", err)
+	}
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return 0, fmt.Errorf("ollama unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	latencyMs = time.Since(start).Milliseconds()
+
+	if resp.StatusCode != http.StatusOK {
+		return latencyMs, fmt.Errorf("ollama returned status %d", resp.StatusCode)
+	}
+
+	return latencyMs, nil
+}
+

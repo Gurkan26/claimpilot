@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: masterfabric
       POSTGRES_DB: masterfabric
     ports:
-      - "${DB_HOST_BIND:-127.0.0.1}:${DB_PORT:-5432}:5432"
+      - "${DB_HOST_BIND:-0.0.0.0}:${DB_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +23,7 @@ services:
     image: redis:7-alpine
     container_name: masterfabric-redis
     ports:
-      - "${REDIS_HOST_BIND:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
+      - "${REDIS_HOST_BIND:-0.0.0.0}:${REDIS_PORT:-6379}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -36,7 +36,7 @@ services:
     image: apache/kafka:latest
     container_name: masterfabric-kafka
     ports:
-      - "${KAFKA_HOST_BIND:-127.0.0.1}:${KAFKA_PORT:-9092}:9092"
+      - "${KAFKA_HOST_BIND:-0.0.0.0}:${KAFKA_PORT:-9092}:9092"
     environment:
       # KRaft single-node setup
       KAFKA_NODE_ID: 1
@@ -66,7 +66,7 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: masterfabric-kafka-ui
     ports:
-      - "${KAFKA_UI_HOST_BIND:-127.0.0.1}:8090:8080"
+      - "${KAFKA_UI_HOST_BIND:-0.0.0.0}:8090:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: masterfabric
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
@@ -74,7 +74,85 @@ services:
       kafka:
         condition: service_healthy
 
+  # =============================================
+  # Ollama AI Model Services (Dual Instance)
+  # =============================================
+  # Two separate Ollama instances for Analyst and Verifier agents.
+  # Each can run different models, enabling admin panel hot-swap.
+  # GPU support is optional: Docker ignores deploy.resources without nvidia-container-toolkit.
+
+  ollama-analyst:
+    image: ollama/ollama:latest
+    container_name: claimpilot-ollama-analyst
+    ports:
+      - "${OLLAMA_ANALYST_HOST_BIND:-0.0.0.0}:${OLLAMA_ANALYST_PORT:-11434}:11434"
+    environment:
+      OLLAMA_MODEL: "${OLLAMA_ANALYST_MODEL:-gemma2:2b}"
+      OLLAMA_HOST: "0.0.0.0"
+    volumes:
+      - ollama_analyst_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  ollama-verifier:
+    image: ollama/ollama:latest
+    container_name: claimpilot-ollama-verifier
+    ports:
+      - "${OLLAMA_VERIFIER_HOST_BIND:-0.0.0.0}:${OLLAMA_VERIFIER_PORT:-11435}:11434"
+    environment:
+      OLLAMA_MODEL: "${OLLAMA_VERIFIER_MODEL:-gemma2:2b}"
+      OLLAMA_HOST: "0.0.0.0"
+    volumes:
+      - ollama_verifier_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # MongoDB for ClaimPilot document & obligation storage
+  mongodb:
+    image: mongo:7-jammy
+    container_name: claimpilot-mongodb
+    ports:
+      - "${MONGO_HOST_BIND:-0.0.0.0}:${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
   redisdata:
   kafkadata:
+  ollama_analyst_data:
+  ollama_verifier_data:
+  mongodata:

@@ -26,6 +26,8 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/harness", h.GetHarness)
 	r.Put("/harness", h.UpdateHarness)
 	r.Post("/llm/{role}/test", h.TestLLM)
+	r.Get("/llm/{role}/models", h.ListModels)
+	r.Post("/llm/{role}/pull", h.PullModel)
 	r.Put("/mcp/{id}/toggle", h.ToggleMCP)
 	r.Post("/simulate", h.Simulate)
 }
@@ -103,11 +105,57 @@ func (h *Handler) TestLLM(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
+	result, err := h.uc.TestLLMConnection(r.Context(), role, req.Provider, req.Endpoint, req.Model)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
+	role := chi.URLParam(r, "role")
+
+	models, err := h.uc.ListAvailableModels(r.Context(), role)
+	if err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+			"role":  role,
+		})
+		return
+	}
+
 	respondJSON(w, http.StatusOK, map[string]any{
-		"success":    true,
-		"latency_ms": 22,
-		"message":    "LLM endpoint reachable and verified",
-		"role":       role,
+		"role":   role,
+		"models": models,
+	})
+}
+
+func (h *Handler) PullModel(w http.ResponseWriter, r *http.Request) {
+	role := chi.URLParam(r, "role")
+	var req struct {
+		Model string `json:"model"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Model == "" {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "Model name is required"})
+		return
+	}
+
+	if err := h.uc.PullModel(r.Context(), role, req.Model); err != nil {
+		respondJSON(w, http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+			"role":  role,
+			"model": req.Model,
+		})
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"role":    role,
+		"model":   req.Model,
+		"message": "Model pulled successfully",
 	})
 }
 

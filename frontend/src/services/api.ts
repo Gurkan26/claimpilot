@@ -10,9 +10,17 @@ import {
   MCPConfigItem,
   LLMRole,
   SimulationResult,
+  OllamaModelInfo,
 } from '../types'
 
-const BASE_URL = 'http://localhost:8080/api/v1'
+const getApiHost = () => {
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    return window.location.hostname
+  }
+  return 'localhost'
+}
+
+const getBaseUrl = () => `http://${getApiHost()}:8080/api/v1`
 
 // Helper for fetch with timeout
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -20,7 +28,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const timeoutId = setTimeout(() => controller.abort(), 8000)
 
   try {
-    const res = await fetch(`${BASE_URL}${endpoint}`, {
+    const res = await fetch(`${getBaseUrl()}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -48,7 +56,7 @@ export const api = {
   // Health check
   async checkHealth(): Promise<boolean> {
     try {
-      const res = await fetch('http://localhost:8080/health', { method: 'GET' })
+      const res = await fetch(`http://${getApiHost()}:8080/health`, { method: 'GET' })
       return res.ok
     } catch {
       return false
@@ -384,7 +392,7 @@ export const api = {
     const formData = new FormData()
     formData.append('file', file)
 
-    const res = await fetch(`${BASE_URL}/documents/upload`, {
+    const res = await fetch(`${getBaseUrl()}/documents/upload`, {
       method: 'POST',
       headers: {
         'X-User-ID': '00000000-0000-0000-0000-000000000001',
@@ -492,6 +500,40 @@ export const api = {
         success: true,
         latencyMs: latency,
         message: `${role.toUpperCase()} LLM (${cfg.provider || 'ollama'} - ${cfg.model || 'model'}) bağlantısı doğrulandı.`,
+      }
+    }
+  },
+
+  async listOllamaModels(
+    role: LLMRole
+  ): Promise<OllamaModelInfo[]> {
+    try {
+      const res = await request<{ role: string; models: OllamaModelInfo[] }>(
+        `/admin/llm/${role}/models`
+      )
+      return res.models || []
+    } catch {
+      // Fallback for offline mode
+      return []
+    }
+  },
+
+  async pullOllamaModel(
+    role: LLMRole,
+    model: string
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      return await request<{ success: boolean; message: string }>(
+        `/admin/llm/${role}/pull`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ model }),
+        }
+      )
+    } catch {
+      return {
+        success: false,
+        message: 'Model indirme başarısız oldu. Ollama servisinin çalıştığından emin olun.',
       }
     }
   },
@@ -625,7 +667,7 @@ const defaultHarnessConfig: HarnessConfig = {
       'Sözleşme ve faturaları okuyarak taahhütleri, yenileme şartlarını, cayma cezalarını ve son bildirim tarihlerini tespit eder.',
     provider: 'ollama',
     endpoint: 'http://localhost:11434',
-    model: 'gemma2:9b',
+    model: 'gemma2:2b',
     temperature: 0.1,
     maxTokens: 4096,
     timeoutSeconds: 120,
@@ -640,8 +682,8 @@ const defaultHarnessConfig: HarnessConfig = {
     roleDescription:
       'Analyst çıktısını denetler, PII maskelemesini teyit eder, DeepWiki iç tüzüğüyle karşılaştırır ve alternatif teklifleri doğrular.',
     provider: 'ollama',
-    endpoint: 'http://localhost:11434',
-    model: 'qwen2.5:7b',
+    endpoint: 'http://localhost:11435',
+    model: 'gemma2:2b',
     temperature: 0.0,
     maxTokens: 2048,
     timeoutSeconds: 60,

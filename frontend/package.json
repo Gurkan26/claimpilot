@@ -1,5 +1,5 @@
 {
-  "name": "claimpilot-desktop",
+  "name": "claimpilot",
   "version": "0.1.0",
   "description": "ClaimPilot — Cross-Platform Desktop AI Employee for Corporate & Personal Obligations",
   "author": "ClaimPilot Engineering Team",
@@ -46,9 +46,11 @@
       "category": "public.app-category.business"
     },
     "win": {
+      "executableName": "ClaimPilot",
+      "sign": null,
+      "signAndEditExecutable": false,
       "target": [
-        "nsis",
-        "portable"
+        "dir"
       ]
     }
   }

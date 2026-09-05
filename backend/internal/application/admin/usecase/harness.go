@@ -69,6 +69,24 @@ type SimulationResultDTO struct {
 	PassedGuardrails         bool                `json:"passed_guardrails"`
 }
 
+// OllamaModelDTO represents a model available on an Ollama instance (for API transport).
+type OllamaModelDTO struct {
+	Name              string `json:"name"`
+	Size              int64  `json:"size"`
+	Family            string `json:"family"`
+	ParameterSize     string `json:"parameter_size"`
+	QuantizationLevel string `json:"quantization_level"`
+	ModifiedAt        string `json:"modified_at"`
+}
+
+// TestLLMResultDTO is the response for an LLM connection test.
+type TestLLMResultDTO struct {
+	Success   bool   `json:"success"`
+	LatencyMs int64  `json:"latency_ms"`
+	Message   string `json:"message"`
+	Role      string `json:"role"`
+}
+
 // HarnessUseCase manages Agent Harness runtime settings, LLM hot-swap, and MCP registry.
 type HarnessUseCase struct {
 	analystProvider  *llmclient.DynamicProvider
@@ -104,10 +122,36 @@ func (uc *HarnessUseCase) VerifyAdminPassword(password string) bool {
 	return strings.TrimSpace(password) == expected
 }
 
-// GetHarnessConfig returns the current active configuration.
+// GetHarnessConfig returns the current active configuration with real health status.
 func (uc *HarnessUseCase) GetHarnessConfig(ctx context.Context) (*HarnessConfigDTO, error) {
 	analystCfg := uc.analystProvider.GetConfig()
 	verifierCfg := uc.verifierProvider.GetConfig()
+
+	// Probe real Ollama health for analyst
+	analystStatus := "connected"
+	analystPingMs := 0
+	if analystCfg.Endpoint != "" {
+		latency, err := llmclient.CheckOllamaHealth(ctx, analystCfg.Endpoint)
+		if err != nil {
+			analystStatus = "disconnected"
+			uc.logger.Warn("analyst LLM health check failed", "error", err)
+		} else {
+			analystPingMs = int(latency)
+		}
+	}
+
+	// Probe real Ollama health for verifier
+	verifierStatus := "connected"
+	verifierPingMs := 0
+	if verifierCfg.Endpoint != "" {
+		latency, err := llmclient.CheckOllamaHealth(ctx, verifierCfg.Endpoint)
+		if err != nil {
+			verifierStatus = "disconnected"
+			uc.logger.Warn("verifier LLM health check failed", "error", err)
+		} else {
+			verifierPingMs = int(latency)
+		}
+	}
 
 	return &HarnessConfigDTO{
 		AnalystLLM: LLMDTO{
@@ -118,8 +162,8 @@ func (uc *HarnessUseCase) GetHarnessConfig(ctx context.Context) (*HarnessConfigD
 			Temperature:     0.1,
 			MaxTokens:       4096,
 			TimeoutSeconds:  int(analystCfg.Timeout.Seconds()),
-			Status:          "connected",
-			LastPingMs:      24,
+			Status:          analystStatus,
+			LastPingMs:      analystPingMs,
 			RoleDescription: "Sözleşme ayrıştırma, taahhüt tespiti ve bildirim süresi çıkarma",
 		},
 		VerifierLLM: LLMDTO{
@@ -130,8 +174,8 @@ func (uc *HarnessUseCase) GetHarnessConfig(ctx context.Context) (*HarnessConfigD
 			Temperature:     0.0,
 			MaxTokens:       2048,
 			TimeoutSeconds:  int(verifierCfg.Timeout.Seconds()),
-			Status:          "connected",
-			LastPingMs:      18,
+			Status:          verifierStatus,
+			LastPingMs:      verifierPingMs,
 			RoleDescription: "Sözleşme tutarlılık denetimi, PII doğrulama ve tedarikçi risk skorlama",
 		},
 		MCPAdapters: uc.mcpRegistry.ListDetails(),
@@ -163,6 +207,110 @@ func (uc *HarnessUseCase) HotSwapLLM(ctx context.Context, role string, newCfg co
 	}
 
 	uc.logger.Info("hot-swap completed successfully", "role", role, "model", newCfg.Model)
+	return nil
+}
+
+// TestLLMConnection performs a real health check against an LLM endpoint.
+func (uc *HarnessUseCase) TestLLMConnection(ctx context.Context, role, provider, endpoint, model string) (*TestLLMResultDTO, error) {
+	if endpoint == "" {
+		// Use the current config's endpoint if none provided
+		switch strings.ToLower(role) {
+		case "analyst":
+			endpoint = uc.analystProvider.GetConfig().Endpoint
+		case "verifier":
+			endpoint = uc.verifierProvider.GetConfig().Endpoint
+		}
+	}
+
+	if endpoint == "" {
+		return &TestLLMResultDTO{
+			Success:   false,
+			LatencyMs: 0,
+			Message:   "No endpoint configured for " + role,
+			Role:      role,
+		}, nil
+	}
+
+	latency, err := llmclient.CheckOllamaHealth(ctx, endpoint)
+	if err != nil {
+		uc.logger.Warn("LLM connection test failed", "role", role, "endpoint", endpoint, "error", err)
+		return &TestLLMResultDTO{
+			Success:   false,
+			LatencyMs: latency,
+			Message:   fmt.Sprintf("Connection failed: %v", err),
+			Role:      role,
+		}, nil
+	}
+
+	msg := fmt.Sprintf("%s LLM (%s - %s) bağlantısı doğrulandı.", strings.ToUpper(role), provider, model)
+	uc.logger.Info("LLM connection test succeeded", "role", role, "latency_ms", latency)
+	return &TestLLMResultDTO{
+		Success:   true,
+		LatencyMs: latency,
+		Message:   msg,
+		Role:      role,
+	}, nil
+}
+
+// ListAvailableModels returns the models available on an Ollama endpoint.
+func (uc *HarnessUseCase) ListAvailableModels(ctx context.Context, role string) ([]OllamaModelDTO, error) {
+	var endpoint string
+	switch strings.ToLower(role) {
+	case "analyst":
+		endpoint = uc.analystProvider.GetConfig().Endpoint
+	case "verifier":
+		endpoint = uc.verifierProvider.GetConfig().Endpoint
+	default:
+		return nil, fmt.Errorf("unknown LLM role: %s", role)
+	}
+
+	if endpoint == "" {
+		return nil, fmt.Errorf("no endpoint configured for role %s", role)
+	}
+
+	models, err := llmclient.ListOllamaModels(ctx, endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("list models for %s: %w", role, err)
+	}
+
+	result := make([]OllamaModelDTO, 0, len(models))
+	for _, m := range models {
+		result = append(result, OllamaModelDTO{
+			Name:              m.Name,
+			Size:              m.Size,
+			Family:            m.Details.Family,
+			ParameterSize:     m.Details.ParameterSize,
+			QuantizationLevel: m.Details.QuantizationLevel,
+			ModifiedAt:        m.ModifiedAt.Format(time.RFC3339),
+		})
+	}
+
+	uc.logger.Info("listed available models", "role", role, "count", len(result))
+	return result, nil
+}
+
+// PullModel triggers a model pull on the Ollama endpoint for the given role.
+func (uc *HarnessUseCase) PullModel(ctx context.Context, role, modelName string) error {
+	var endpoint string
+	switch strings.ToLower(role) {
+	case "analyst":
+		endpoint = uc.analystProvider.GetConfig().Endpoint
+	case "verifier":
+		endpoint = uc.verifierProvider.GetConfig().Endpoint
+	default:
+		return fmt.Errorf("unknown LLM role: %s", role)
+	}
+
+	if endpoint == "" {
+		return fmt.Errorf("no endpoint configured for role %s", role)
+	}
+
+	uc.logger.Info("pulling model", "role", role, "model", modelName, "endpoint", endpoint)
+	if err := llmclient.PullOllamaModel(ctx, endpoint, modelName); err != nil {
+		return fmt.Errorf("pull model %s for %s: %w", modelName, role, err)
+	}
+
+	uc.logger.Info("model pull completed", "role", role, "model", modelName)
 	return nil
 }
 

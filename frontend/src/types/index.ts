@@ -229,3 +229,14 @@ export interface SimulationResult {
   passedGuardrails: boolean
 }
 
+// Ollama Model Management Types
+export interface OllamaModelInfo {
+  name: string
+  size: number
+  family: string
+  parameter_size: string
+  quantization_level: string
+  modified_at: string
+}
+
+

@@ -178,8 +178,8 @@ func Load() *Config {
 		}
 	} else if analystProvider == "" {
 		analystProvider = "ollama"
-		analystEndpoint = "http://localhost:11434"
-		analystModel = "gemma2:9b"
+		analystEndpoint = envOrDefault("OLLAMA_ANALYST_ENDPOINT", "http://localhost:11434")
+		analystModel = "gemma2:2b"
 	}
 
 	verifierProvider := envOrDefault("LLM_VERIFIER_PROVIDER", "")
@@ -202,8 +202,8 @@ func Load() *Config {
 		}
 	} else if verifierProvider == "" {
 		verifierProvider = "ollama"
-		verifierEndpoint = "http://localhost:11434"
-		verifierModel = "gemma2:9b"
+		verifierEndpoint = envOrDefault("OLLAMA_VERIFIER_ENDPOINT", "http://localhost:11435")
+		verifierModel = "gemma2:2b"
 	}
 
 	return &Config{
