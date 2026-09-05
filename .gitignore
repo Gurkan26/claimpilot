@@ -30,6 +30,7 @@ backend/api
 backend/spark
 backend/worker
 backend/server
+backend/testdata/*.json
 
 # Environment & Credentials
 .env

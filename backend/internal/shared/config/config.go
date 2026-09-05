@@ -128,8 +128,84 @@ type LLMConfig struct {
 	MaxRetries int           // retry count on transient failures
 }
 
+func loadDotEnv() {
+	for _, filename := range []string{".env", "../.env", "../../.env", "backend/.env"} {
+		data, err := os.ReadFile(filename)
+		if err == nil {
+			for _, line := range strings.Split(string(data), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					k := strings.TrimSpace(parts[0])
+					v := strings.TrimSpace(parts[1])
+					v = strings.Trim(v, `"'`)
+					if os.Getenv(k) == "" {
+						_ = os.Setenv(k, v)
+					}
+				}
+			}
+			return
+		}
+	}
+}
+
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
+	loadDotEnv()
+
+	groqKey := envOrDefault("GROQ_API_KEY", "")
+
+	analystProvider := envOrDefault("LLM_ANALYST_PROVIDER", "")
+	analystEndpoint := envOrDefault("LLM_ANALYST_ENDPOINT", "")
+	analystModel := envOrDefault("LLM_ANALYST_MODEL", "")
+	analystKey := envOrDefault("LLM_ANALYST_API_KEY", "")
+
+	if groqKey != "" {
+		if analystKey == "" {
+			analystKey = groqKey
+		}
+		if analystProvider == "" {
+			analystProvider = "groq"
+		}
+		if analystEndpoint == "" {
+			analystEndpoint = "https://api.groq.com/openai/v1"
+		}
+		if analystModel == "" {
+			analystModel = "openai/gpt-oss-120b"
+		}
+	} else if analystProvider == "" {
+		analystProvider = "ollama"
+		analystEndpoint = "http://localhost:11434"
+		analystModel = "gemma2:9b"
+	}
+
+	verifierProvider := envOrDefault("LLM_VERIFIER_PROVIDER", "")
+	verifierEndpoint := envOrDefault("LLM_VERIFIER_ENDPOINT", "")
+	verifierModel := envOrDefault("LLM_VERIFIER_MODEL", "")
+	verifierKey := envOrDefault("LLM_VERIFIER_API_KEY", "")
+
+	if groqKey != "" {
+		if verifierKey == "" {
+			verifierKey = groqKey
+		}
+		if verifierProvider == "" {
+			verifierProvider = "groq"
+		}
+		if verifierEndpoint == "" {
+			verifierEndpoint = "https://api.groq.com/openai/v1"
+		}
+		if verifierModel == "" {
+			verifierModel = "openai/gpt-oss-20b"
+		}
+	} else if verifierProvider == "" {
+		verifierProvider = "ollama"
+		verifierEndpoint = "http://localhost:11434"
+		verifierModel = "gemma2:9b"
+	}
+
 	return &Config{
 		Server: ServerConfig{
 			Host:               envOrDefault("SERVER_HOST", "0.0.0.0"),
@@ -185,18 +261,18 @@ func Load() *Config {
 			Timeout:  time.Duration(envOrDefaultInt("MONGODB_TIMEOUT_SECONDS", 10)) * time.Second,
 		},
 		LLMAnalyst: LLMConfig{
-			Provider:   envOrDefault("LLM_ANALYST_PROVIDER", "ollama"),
-			Endpoint:   envOrDefault("LLM_ANALYST_ENDPOINT", "http://localhost:11434"),
-			Model:      envOrDefault("LLM_ANALYST_MODEL", "gemma2:9b"),
-			APIKey:     envOrDefault("LLM_ANALYST_API_KEY", ""),
+			Provider:   analystProvider,
+			Endpoint:   analystEndpoint,
+			Model:      analystModel,
+			APIKey:     analystKey,
 			Timeout:    time.Duration(envOrDefaultInt("LLM_ANALYST_TIMEOUT_SECONDS", 120)) * time.Second,
 			MaxRetries: envOrDefaultInt("LLM_ANALYST_MAX_RETRIES", 3),
 		},
 		LLMVerifier: LLMConfig{
-			Provider:   envOrDefault("LLM_VERIFIER_PROVIDER", "ollama"),
-			Endpoint:   envOrDefault("LLM_VERIFIER_ENDPOINT", "http://localhost:11434"),
-			Model:      envOrDefault("LLM_VERIFIER_MODEL", "gemma2:9b"),
-			APIKey:     envOrDefault("LLM_VERIFIER_API_KEY", ""),
+			Provider:   verifierProvider,
+			Endpoint:   verifierEndpoint,
+			Model:      verifierModel,
+			APIKey:     verifierKey,
 			Timeout:    time.Duration(envOrDefaultInt("LLM_VERIFIER_TIMEOUT_SECONDS", 60)) * time.Second,
 			MaxRetries: envOrDefaultInt("LLM_VERIFIER_MAX_RETRIES", 3),
 		},

@@ -15,6 +15,7 @@ import (
 // openaiProvider implements the Provider interface for OpenAI-compatible APIs.
 // Endpoint and API key come from config (env variables).
 type openaiProvider struct {
+	name     string
 	endpoint string
 	model    string
 	apiKey   string
@@ -23,17 +24,26 @@ type openaiProvider struct {
 
 // NewOpenAIProvider creates an OpenAI-compatible provider from config.
 func NewOpenAIProvider(cfg config.LLMConfig) Provider {
+	providerName := cfg.Provider
+	if providerName == "" {
+		providerName = "openai"
+	}
+	timeout := cfg.Timeout
+	if timeout == 0 {
+		timeout = 60 * time.Second
+	}
 	return &openaiProvider{
+		name:     providerName,
 		endpoint: cfg.Endpoint,
 		model:    cfg.Model,
 		apiKey:   cfg.APIKey,
 		client: &http.Client{
-			Timeout: cfg.Timeout,
+			Timeout: timeout,
 		},
 	}
 }
 
-func (p *openaiProvider) Name() string  { return "openai" }
+func (p *openaiProvider) Name() string  { return p.name }
 func (p *openaiProvider) Model() string { return p.model }
 
 // OpenAI API request/response types
@@ -55,7 +65,8 @@ type openaiChatResponse struct {
 	ID      string `json:"id"`
 	Choices []struct {
 		Message struct {
-			Content string `json:"content"`
+			Content   string `json:"content"`
+			Reasoning string `json:"reasoning,omitempty"`
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
@@ -76,12 +87,17 @@ type openaiStreamResponse struct {
 func (p *openaiProvider) Complete(ctx context.Context, req *CompletionRequest) (*CompletionResponse, error) {
 	start := time.Now()
 
+	maxTokens := req.MaxTokens
+	if maxTokens <= 0 || maxTokens < 2048 {
+		maxTokens = 2048
+	}
+
 	messages := p.buildMessages(req)
 	oaiReq := openaiChatRequest{
 		Model:       p.model,
 		Messages:    messages,
 		Temperature: req.Temperature,
-		MaxTokens:   req.MaxTokens,
+		MaxTokens:   maxTokens,
 		TopP:        req.TopP,
 		Stream:      false,
 	}
@@ -120,11 +136,17 @@ func (p *openaiProvider) Complete(ctx context.Context, req *CompletionRequest) (
 		return nil, fmt.Errorf("openai returned no choices")
 	}
 
+	choice := oaiResp.Choices[0]
+	content := choice.Message.Content
+	if content == "" && choice.Message.Reasoning != "" {
+		content = choice.Message.Reasoning
+	}
+
 	return &CompletionResponse{
-		Content:      oaiResp.Choices[0].Message.Content,
+		Content:      content,
 		Model:        p.model,
 		TokensUsed:   oaiResp.Usage.TotalTokens,
-		FinishReason: oaiResp.Choices[0].FinishReason,
+		FinishReason: choice.FinishReason,
 		Duration:     time.Since(start),
 	}, nil
 }

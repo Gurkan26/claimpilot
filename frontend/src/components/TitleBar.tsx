@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { Shield, Minus, Square, X, Copy, Globe, Building2, User, LogOut, ChevronDown } from 'lucide-react'
+import { Shield, Minus, Square, X, Copy, Globe, Building2, User, LogOut, ChevronDown, UserCog } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { TabType } from './Sidebar'
 
 interface TitleBarProps {
   isBackendOnline: boolean
+  onNavigateTab?: (tab: TabType) => void
 }
 
-export const TitleBar: React.FC<TitleBarProps> = ({ isBackendOnline }) => {
+export const TitleBar: React.FC<TitleBarProps> = ({ isBackendOnline, onNavigateTab }) => {
   const [isMac, setIsMac] = useState(true)
   const [isMaximized, setIsMaximized] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
@@ -133,6 +135,19 @@ export const TitleBar: React.FC<TitleBarProps> = ({ isBackendOnline }) => {
                 </div>
               </div>
               <div className="user-dropdown-divider" />
+              {isAdmin && onNavigateTab && (
+                <button
+                  className="user-dropdown-item"
+                  onClick={() => {
+                    onNavigateTab('admin')
+                    setShowUserMenu(false)
+                  }}
+                  style={{ color: '#d8b4fe' }}
+                >
+                  <UserCog size={14} color="#a855f7" />
+                  <span>{t.editAdminProfile}</span>
+                </button>
+              )}
               <button
                 className="user-dropdown-item user-dropdown-logout"
                 onClick={() => { logout(); setShowUserMenu(false) }}

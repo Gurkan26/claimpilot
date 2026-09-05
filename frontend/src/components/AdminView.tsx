@@ -23,6 +23,8 @@ import {
   AlertCircle,
   ExternalLink,
   Code2,
+  UserCog,
+  KeyRound,
 } from 'lucide-react'
 import {
   HarnessConfig,
@@ -36,17 +38,37 @@ import { useAuth } from '../context/AuthContext'
 
 interface AdminViewProps {
   onShowToast: (message: string, type: 'success' | 'error' | 'info') => void
+  initialSubTab?: AdminSubTab
 }
 
-type AdminSubTab = 'llm' | 'mcp' | 'guardrails' | 'simulator'
+export type AdminSubTab = 'llm' | 'mcp' | 'guardrails' | 'simulator' | 'profile'
 
-export const AdminView: React.FC<AdminViewProps> = ({ onShowToast }) => {
-  const { t } = useAuth()
-  const [subTab, setSubTab] = useState<AdminSubTab>('llm')
+export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab = 'llm' }) => {
+  const { user, isAdmin, updateAdminProfile, updateAdminPassword, t } = useAuth()
+  const [subTab, setSubTab] = useState<AdminSubTab>(initialSubTab)
   const [config, setConfig] = useState<HarnessConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testingRole, setTestingRole] = useState<LLMRole | null>(null)
+
+  // Admin Profile state
+  const [adminName, setAdminName] = useState(user.name)
+  const [adminEmail, setAdminEmail] = useState(user.email)
+  const [adminOrg, setAdminOrg] = useState(user.organization)
+  const [adminRole, setAdminRole] = useState(user.role)
+
+  // Admin Password state
+  const [currentPass, setCurrentPass] = useState('')
+  const [newPass, setNewPass] = useState('')
+  const [confirmPass, setConfirmPass] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+
+  useEffect(() => {
+    setAdminName(user.name)
+    setAdminEmail(user.email)
+    setAdminOrg(user.organization)
+    setAdminRole(user.role)
+  }, [user])
 
   // Simulation state
   const [simSample, setSimSample] = useState(
@@ -170,6 +192,70 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast }) => {
     } finally {
       setSimulating(false)
     }
+  }
+
+  const handleUpdateProfile = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!adminName.trim() || !adminEmail.trim()) {
+      onShowToast('Lütfen ad ve e-posta alanlarını doldurunuz.', 'error')
+      return
+    }
+    updateAdminProfile({
+      name: adminName.trim(),
+      email: adminEmail.trim(),
+      organization: adminOrg.trim(),
+      role: adminRole.trim(),
+    })
+    onShowToast(t.adminProfileSaved, 'success')
+  }
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault()
+    setPasswordError('')
+    if (newPass !== confirmPass) {
+      setPasswordError(t.adminPasswordMismatch)
+      onShowToast(t.adminPasswordMismatch, 'error')
+      return
+    }
+    const result = updateAdminPassword(currentPass, newPass)
+    if (!result.success) {
+      setPasswordError(result.message)
+      onShowToast(result.message, 'error')
+      return
+    }
+    setCurrentPass('')
+    setNewPass('')
+    setConfirmPass('')
+    onShowToast(t.adminPasswordChanged, 'success')
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="view-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+        <div
+          style={{
+            maxWidth: 480,
+            padding: 32,
+            background: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            borderRadius: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            gap: 14,
+          }}
+        >
+          <ShieldAlert size={44} color="#ef4444" />
+          <h3 style={{ margin: 0, fontSize: 18, color: '#f87171', fontWeight: 700 }}>
+            {t.adminAccessDenied}
+          </h3>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+            {t.adminAccessDeniedDesc}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (loading || !config) {
@@ -321,6 +407,14 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast }) => {
         >
           <Play size={15} />
           <span>{t.tabSimulator}</span>
+        </button>
+
+        <button
+          className={`admin-tab-btn ${subTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setSubTab('profile')}
+        >
+          <UserCog size={15} />
+          <span>{t.tabAdminProfile}</span>
         </button>
       </div>
 
@@ -1154,6 +1248,188 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 5: ADMIN PROFILE & SECURITY */}
+      {/* ========================================================================= */}
+      {subTab === 'profile' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: 20 }}>
+          {/* Card 1: Admin Profile Details */}
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="agent-avatar" style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)' }}>
+                  {user.avatar || 'ADM'}
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, color: '#f8fafc' }}>{t.adminProfileTitle}</h3>
+                  <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>
+                    {t.adminProfileSubtitle}
+                  </p>
+                </div>
+              </div>
+              <span className="badge" style={{ backgroundColor: 'rgba(168, 85, 247, 0.2)', color: '#d8b4fe', borderColor: 'rgba(168, 85, 247, 0.4)' }}>
+                {t.adminBadge}
+              </span>
+            </div>
+
+            <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">{t.fullName}</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label">{t.email}</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label">{t.companyName}</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={adminOrg}
+                  onChange={(e) => setAdminOrg(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label">{t.department} / Rol</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={adminRole}
+                  onChange={(e) => setAdminRole(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    background: 'linear-gradient(135deg, #9333ea 0%, #6366f1 100%)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <CheckCircle2 size={15} />
+                  <span>{t.adminSaveProfile}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Card 2: Admin Password Management */}
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div className="admin-stat-icon" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#f87171' }}>
+                  <KeyRound size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, color: '#f8fafc' }}>{t.adminPasswordSectionTitle}</h3>
+                  <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>
+                    {t.adminPasswordSectionSubtitle}
+                  </p>
+                </div>
+              </div>
+              <span className="badge badge-warning">GÜVENLİK</span>
+            </div>
+
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label className="form-label">{t.adminCurrentPassword}</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={currentPass}
+                  onChange={(e) => setCurrentPass(e.target.value)}
+                  placeholder="Mevcut şifre (varsayılan: admin123)"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label">{t.adminNewPassword}</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={newPass}
+                  onChange={(e) => setNewPass(e.target.value)}
+                  placeholder="En az 4 karakter"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="form-label">{t.adminConfirmPassword}</label>
+                <input
+                  type="password"
+                  className="form-input"
+                  value={confirmPass}
+                  onChange={(e) => setConfirmPass(e.target.value)}
+                  placeholder="Yeni şifreyi tekrar girin"
+                  required
+                />
+              </div>
+
+              {passwordError && (
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#f87171',
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <AlertCircle size={14} />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <KeyRound size={15} />
+                  <span>{t.adminChangePasswordBtn}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

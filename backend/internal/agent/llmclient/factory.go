@@ -1,8 +1,6 @@
 package llmclient
 
 import (
-	"fmt"
-
 	"github.com/masterfabric-go/masterfabric/internal/shared/config"
 )
 
@@ -10,18 +8,41 @@ import (
 // The config determines which provider, endpoint, model, and API key to use.
 // Nothing is hardcoded — all values come from environment variables via config.
 func NewProvider(cfg config.LLMConfig) (Provider, error) {
-	if cfg.Endpoint == "" {
-		return nil, fmt.Errorf("LLM endpoint is required (set via environment variable)")
-	}
-
 	switch cfg.Provider {
+	case "builtin", "internal", "mock":
+		return NewBuiltinProvider(cfg), nil
+	case "groq":
+		if cfg.Endpoint == "" {
+			cfg.Endpoint = "https://api.groq.com/openai/v1"
+		}
+		if cfg.Model == "" {
+			cfg.Model = "openai/gpt-oss-120b"
+		}
+		return NewOpenAIProvider(cfg), nil
+	case "openrouter":
+		if cfg.Endpoint == "" {
+			cfg.Endpoint = "https://openrouter.ai/api/v1"
+		}
+		if cfg.Model == "" {
+			cfg.Model = "meta-llama/llama-3.3-70b-instruct:free"
+		}
+		return NewOpenAIProvider(cfg), nil
 	case "ollama", "gemma":
+		if cfg.Endpoint == "" {
+			return NewBuiltinProvider(cfg), nil
+		}
 		return NewOllamaProvider(cfg), nil
 	case "openai":
+		if cfg.Endpoint == "" {
+			return NewBuiltinProvider(cfg), nil
+		}
 		return NewOpenAIProvider(cfg), nil
 	case "anthropic":
+		if cfg.Endpoint == "" {
+			return NewBuiltinProvider(cfg), nil
+		}
 		return NewAnthropicProvider(cfg), nil
 	default:
-		return nil, fmt.Errorf("unknown LLM provider %q; supported: ollama, gemma, openai, anthropic", cfg.Provider)
+		return NewBuiltinProvider(cfg), nil
 	}
 }

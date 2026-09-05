@@ -26,12 +26,14 @@ const AppContent: React.FC = () => {
   const [isBackendOnline, setIsBackendOnline] = useState(false)
   const { toasts, addToast, removeToast } = useToast()
 
-  // Auto-switch to admin tab if user logs in as admin
+  // Auto-switch to admin tab if user logs in as admin; redirect away if not admin
   useEffect(() => {
     if (isAdmin) {
       setActiveTab('admin')
+    } else if (activeTab === 'admin') {
+      setActiveTab('dashboard')
     }
-  }, [isAdmin])
+  }, [isAdmin, activeTab])
 
   // State
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
@@ -153,7 +155,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="app-root-wrapper">
       <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
-        <TitleBar isBackendOnline={isBackendOnline} />
+        <TitleBar isBackendOnline={isBackendOnline} onNavigateTab={setActiveTab} />
 
         <div className="app-shell">
           <Sidebar
@@ -195,7 +197,7 @@ const AppContent: React.FC = () => {
 
             {activeTab === 'audit' && <AuditLogView logs={auditLogs} />}
 
-            {activeTab === 'admin' && (
+            {activeTab === 'admin' && isAdmin && (
               <AdminView onShowToast={(msg, type) => addToast(type, msg)} />
             )}
           </main>

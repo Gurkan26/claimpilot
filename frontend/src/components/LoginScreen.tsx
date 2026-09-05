@@ -24,7 +24,7 @@ export const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('')
   const [showCustomForm, setShowCustomForm] = useState(false)
   const [showAdminLogin, setShowAdminLogin] = useState(false)
-  const [adminPassword, setAdminPassword] = useState('admin123')
+  const [adminPassword, setAdminPassword] = useState(() => localStorage.getItem('claimpilot_admin_password') || 'admin123')
   const [adminError, setAdminError] = useState('')
 
   const handleQuickCorporate = () => {

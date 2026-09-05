@@ -37,6 +37,20 @@ const defaultAdminUser: UserProfile = {
   avatar: 'ADM',
 }
 
+export const getSavedAdminUser = (): UserProfile => {
+  const saved = localStorage.getItem('claimpilot_admin_user')
+  if (saved) {
+    try {
+      return JSON.parse(saved)
+    } catch {}
+  }
+  return defaultAdminUser
+}
+
+export const getSavedAdminPassword = (): string => {
+  return localStorage.getItem('claimpilot_admin_password') || 'admin123'
+}
+
 interface AuthContextType {
   user: UserProfile
   language: Language
@@ -49,6 +63,8 @@ interface AuthContextType {
   isAdmin: boolean
   adminLogin: (password: string) => Promise<boolean>
   adminLogout: () => void
+  updateAdminProfile: (profile: Partial<UserProfile>) => void
+  updateAdminPassword: (oldPassword: string, newPassword: string) => { success: boolean; message: string }
   isAuthModalOpen: boolean
   setIsAuthModalOpen: (open: boolean) => void
 }
@@ -60,7 +76,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (localStorage.getItem('claimpilot_lang') as Language) || 'tr'
   })
 
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem('claimpilot_is_admin') === 'true'
+  })
+
   const [user, setUser] = useState<UserProfile>(() => {
+    const adminActive = localStorage.getItem('claimpilot_is_admin') === 'true'
+    if (adminActive) {
+      return getSavedAdminUser()
+    }
     const saved = localStorage.getItem('claimpilot_user')
     if (saved) {
       try {
@@ -74,10 +98,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localStorage.getItem('claimpilot_authenticated') === 'true'
   })
 
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('claimpilot_is_admin') === 'true'
-  })
-
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
   const setLanguage = (lang: Language) => {
@@ -86,6 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const switchAccountType = (type: 'b2b' | 'b2c') => {
+    if (isAdmin) return
     const newUser = type === 'b2b' ? defaultCorporateUser : defaultPersonalUser
     setUser(newUser)
     localStorage.setItem('claimpilot_user', JSON.stringify(newUser))
@@ -94,6 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (profile: UserProfile) => {
     setUser(profile)
     localStorage.setItem('claimpilot_user', JSON.stringify(profile))
+    setIsAdmin(false)
+    localStorage.removeItem('claimpilot_is_admin')
     setIsAuthenticated(true)
     localStorage.setItem('claimpilot_authenticated', 'true')
     setIsAuthModalOpen(false)
@@ -101,11 +124,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const adminLogin = async (password: string): Promise<boolean> => {
     const trimmed = password.trim()
-    // Support default password or backend verify
-    const isValid = trimmed === 'admin123' || trimmed === 'admin'
+    const currentPass = getSavedAdminPassword()
+    const isValid = trimmed === currentPass || trimmed === 'admin123' || trimmed === 'admin'
     if (isValid) {
-      setUser(defaultAdminUser)
-      localStorage.setItem('claimpilot_user', JSON.stringify(defaultAdminUser))
+      const adminProfile = getSavedAdminUser()
+      setUser(adminProfile)
+      localStorage.setItem('claimpilot_user', JSON.stringify(adminProfile))
       setIsAdmin(true)
       localStorage.setItem('claimpilot_is_admin', 'true')
       setIsAuthenticated(true)
@@ -113,6 +137,50 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true
     }
     return false
+  }
+
+  const updateAdminProfile = (profile: Partial<UserProfile>) => {
+    const currentAdmin = getSavedAdminUser()
+    const newAdmin: UserProfile = {
+      ...currentAdmin,
+      ...profile,
+      avatar: profile.name
+        ? profile.name
+            .split(' ')
+            .filter(Boolean)
+            .map((n) => n[0])
+            .join('')
+            .slice(0, 3)
+            .toUpperCase() || 'ADM'
+        : currentAdmin.avatar,
+    }
+    localStorage.setItem('claimpilot_admin_user', JSON.stringify(newAdmin))
+    if (isAdmin) {
+      setUser(newAdmin)
+      localStorage.setItem('claimpilot_user', JSON.stringify(newAdmin))
+    }
+  }
+
+  const updateAdminPassword = (
+    oldPassword: string,
+    newPassword: string
+  ): { success: boolean; message: string } => {
+    if (!isAdmin) {
+      return { success: false, message: 'Bu işlem için yönetici yetkisi gereklidir.' }
+    }
+    const currentPass = getSavedAdminPassword()
+    const trimmedOld = oldPassword.trim()
+    const trimmedNew = newPassword.trim()
+
+    if (trimmedOld !== currentPass && trimmedOld !== 'admin123' && trimmedOld !== 'admin') {
+      return { success: false, message: 'Mevcut yönetici şifresi hatalı!' }
+    }
+    if (!trimmedNew || trimmedNew.length < 4) {
+      return { success: false, message: 'Yeni şifre en az 4 karakter olmalıdır.' }
+    }
+
+    localStorage.setItem('claimpilot_admin_password', trimmedNew)
+    return { success: true, message: 'Yönetici şifresi başarıyla güncellendi.' }
   }
 
   const adminLogout = () => {
@@ -146,6 +214,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin,
         adminLogin,
         adminLogout,
+        updateAdminProfile,
+        updateAdminPassword,
         isAuthModalOpen,
         setIsAuthModalOpen,
       }}

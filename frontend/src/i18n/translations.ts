@@ -148,6 +148,22 @@ export interface TranslationDict {
   tabMcpHarness: string
   tabGuardrails: string
   tabSimulator: string
+  tabAdminProfile: string
+  adminProfileTitle: string
+  adminProfileSubtitle: string
+  adminSaveProfile: string
+  adminProfileSaved: string
+  adminPasswordSectionTitle: string
+  adminPasswordSectionSubtitle: string
+  adminCurrentPassword: string
+  adminNewPassword: string
+  adminConfirmPassword: string
+  adminChangePasswordBtn: string
+  adminPasswordMismatch: string
+  adminPasswordChanged: string
+  adminAccessDenied: string
+  adminAccessDeniedDesc: string
+  editAdminProfile: string
   analystRoleTitle: string
   verifierRoleTitle: string
   llmProvider: string
@@ -315,6 +331,22 @@ export const translations: Record<Language, TranslationDict> = {
     tabMcpHarness: 'MCP Bağlantıları & DeepWiki',
     tabGuardrails: 'Harness İlkeleri & Güvenlik',
     tabSimulator: 'Canlı Agent Pipeline Simülatörü',
+    tabAdminProfile: 'Yönetici Bilgileri & Güvenlik',
+    adminProfileTitle: 'Yönetici Profil Bilgileri',
+    adminProfileSubtitle: 'Sistem yöneticisi kimlik, kurum ve unvan bilgilerini güncelleyin.',
+    adminSaveProfile: 'Profil Bilgilerini Güncelle',
+    adminProfileSaved: 'Yönetici profil bilgileri başarıyla güncellendi.',
+    adminPasswordSectionTitle: 'Yönetici Şifresini Değiştir',
+    adminPasswordSectionSubtitle: 'Agent Harness konsolu yönetici giriş şifresini güncelleyin.',
+    adminCurrentPassword: 'Mevcut Yönetici Şifresi',
+    adminNewPassword: 'Yeni Şifre',
+    adminConfirmPassword: 'Yeni Şifre (Tekrar)',
+    adminChangePasswordBtn: 'Şifreyi Güncelle',
+    adminPasswordMismatch: 'Yeni şifreler birbiriyle eşleşmiyor!',
+    adminPasswordChanged: 'Yönetici şifresi başarıyla güncellendi.',
+    adminAccessDenied: 'Yetkisiz Erişim Engellendi',
+    adminAccessDeniedDesc: 'Bu panel sadece sistem yöneticilerine açıktır. Lütfen yönetici hesabınızla giriş yapınız.',
+    editAdminProfile: 'Yönetici Bilgilerini Düzenle',
     analystRoleTitle: 'Rol 1: Analist Ajanı (Analyst Agent)',
     verifierRoleTitle: 'Rol 2: Doğrulayıcı Ajanı (Verifier Agent)',
     llmProvider: 'LLM Sağlayıcı',
@@ -480,6 +512,22 @@ export const translations: Record<Language, TranslationDict> = {
     tabMcpHarness: 'MCP Adapters & DeepWiki',
     tabGuardrails: 'Harness Guardrails & Policies',
     tabSimulator: 'Live Agent Pipeline Simulator',
+    tabAdminProfile: 'Admin Profile & Security',
+    adminProfileTitle: 'Administrator Profile',
+    adminProfileSubtitle: 'Update system administrator identity, organization, and role details.',
+    adminSaveProfile: 'Update Profile Details',
+    adminProfileSaved: 'Administrator profile successfully updated.',
+    adminPasswordSectionTitle: 'Change Admin Password',
+    adminPasswordSectionSubtitle: 'Update administrator console login password.',
+    adminCurrentPassword: 'Current Admin Password',
+    adminNewPassword: 'New Password',
+    adminConfirmPassword: 'Confirm New Password',
+    adminChangePasswordBtn: 'Update Password',
+    adminPasswordMismatch: 'New passwords do not match!',
+    adminPasswordChanged: 'Administrator password successfully updated.',
+    adminAccessDenied: 'Access Denied',
+    adminAccessDeniedDesc: 'This panel is restricted to system administrators only. Please log in with administrator credentials.',
+    editAdminProfile: 'Edit Admin Profile',
     analystRoleTitle: 'Role 1: Analyst Agent',
     verifierRoleTitle: 'Role 2: Verifier Agent',
     llmProvider: 'LLM Provider',
