@@ -178,7 +178,7 @@ func Load() *Config {
 		}
 	} else if analystProvider == "" {
 		analystProvider = "ollama"
-		analystEndpoint = envOrDefault("OLLAMA_ANALYST_ENDPOINT", "http://localhost:11434")
+		analystEndpoint = envOrDefault("OLLAMA_ANALYST_ENDPOINT", "http://192.168.1.100:11434")
 		analystModel = "gemma2:2b"
 	}
 
@@ -202,7 +202,7 @@ func Load() *Config {
 		}
 	} else if verifierProvider == "" {
 		verifierProvider = "ollama"
-		verifierEndpoint = envOrDefault("OLLAMA_VERIFIER_ENDPOINT", "http://localhost:11435")
+		verifierEndpoint = envOrDefault("OLLAMA_VERIFIER_ENDPOINT", "http://192.168.1.100:11435")
 		verifierModel = "gemma2:2b"
 	}
 
@@ -278,7 +278,7 @@ func Load() *Config {
 		},
 		Admin: AdminConfig{
 			Password:             envOrDefault("ADMIN_PASSWORD", "admin123"),
-			DeepWikiURL:          envOrDefault("DEEPWIKI_MCP_URL", "http://localhost:8899/mcp/deepwiki/sse"),
+			DeepWikiURL:          envOrDefault("DEEPWIKI_MCP_URL", "http://192.168.1.100:8899/mcp/deepwiki/sse"),
 			RequireHumanApproval: envOrDefault("HARNESS_REQUIRE_HUMAN_APPROVAL", "true") == "true",
 		},
 	}

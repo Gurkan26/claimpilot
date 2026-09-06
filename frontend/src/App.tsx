@@ -100,6 +100,29 @@ const AppContent: React.FC = () => {
     }
   }
 
+  const handleRenew = async (id: string) => {
+    try {
+      await api.renewObligation(id, 30)
+      addToast('success', t.toastRenewed)
+      if (window.claimpilotDesktop) {
+        window.claimpilotDesktop.notify('ClaimPilot Yenileme', t.toastRenewed)
+      }
+      loadData()
+    } catch (e: any) {
+      addToast('error', `${t.toastError} ${e.message}`)
+    }
+  }
+
+  const handleUpdateStatus = async (id: string, status: string) => {
+    try {
+      await api.updateObligationStatus(id, status)
+      addToast('success', t.toastStatusUpdated)
+      loadData()
+    } catch (e: any) {
+      addToast('error', `${t.toastError} ${e.message}`)
+    }
+  }
+
   const handleTriggerRFQ = async (oppId: string) => {
     try {
       await api.triggerRFQ(oppId)
@@ -179,6 +202,8 @@ const AppContent: React.FC = () => {
                 obligations={obligations}
                 onApprove={handleApprove}
                 onDismiss={handleDismiss}
+                onRenew={handleRenew}
+                onUpdateStatus={handleUpdateStatus}
               />
             )}
 

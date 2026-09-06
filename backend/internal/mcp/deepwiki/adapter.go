@@ -28,7 +28,7 @@ type Adapter struct {
 // New creates a new DeepWiki MCP adapter.
 func New(endpoint string, logger *slog.Logger) *Adapter {
 	if endpoint == "" {
-		endpoint = "http://localhost:8899/mcp/deepwiki/sse"
+		endpoint = "http://192.168.1.100:8899/mcp/deepwiki/sse"
 	}
 	return &Adapter{
 		logger:   logger.With("adapter", "deepwiki"),

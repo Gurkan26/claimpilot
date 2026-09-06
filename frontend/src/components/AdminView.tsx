@@ -569,7 +569,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
                       analystLLM: { ...config.analystLLM, endpoint: e.target.value },
                     })
                   }
-                  placeholder="http://localhost:11434"
+                  placeholder="http://192.168.1.100:11434"
                 />
               </div>
 
@@ -762,7 +762,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
                       verifierLLM: { ...config.verifierLLM, endpoint: e.target.value },
                     })
                   }
-                  placeholder="http://localhost:11435"
+                  placeholder="http://192.168.1.100:11435"
                 />
               </div>
 
@@ -923,7 +923,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
                 <div style={{ background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
                   <span style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>DeepWiki SSE Endpoint</span>
-                  <code style={{ fontSize: 12, color: '#38bdf8' }}>http://localhost:8899/mcp/deepwiki/sse</code>
+                  <code style={{ fontSize: 12, color: '#38bdf8' }}>http://192.168.1.100:8899/mcp/deepwiki/sse</code>
                 </div>
 
                 <div style={{ background: 'rgba(0,0,0,0.3)', padding: 12, borderRadius: 8 }}>
@@ -1605,7 +1605,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onShowToast, initialSubTab
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="http://localhost:8899/sse"
+                  placeholder="http://192.168.1.100:8899/sse"
                   value={newMcpEndpoint}
                   onChange={(e) => setNewMcpEndpoint(e.target.value)}
                   required

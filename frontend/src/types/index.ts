@@ -53,12 +53,12 @@ export interface Obligation {
   id: string
   documentId: string
   userId: string
-  type: 'RENEWAL' | 'PAYMENT' | 'REPORT' | 'WARRANTY' | 'CANCELLATION' | 'COMPLIANCE'
+  type: 'RENEWAL' | 'PAYMENT' | 'REPORT' | 'WARRANTY' | 'CANCELLATION' | 'COMPLIANCE' | 'SUBSCRIPTION'
   title: string
   description: string
   dueDate: string
   amount?: Money
-  status: 'DETECTED' | 'PENDING_APPROVAL' | 'IN_PROGRESS' | 'RESOLVED' | 'DISMISSED' | 'EXPIRED'
+  status: 'DETECTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'RENEWED' | 'IN_PROGRESS' | 'RESOLVED' | 'DISMISSED' | 'EXPIRED' | string
   riskLevel: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
   suggestedAction?: ObligationAction
   approvedAction?: ObligationAction

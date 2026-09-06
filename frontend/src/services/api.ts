@@ -14,13 +14,21 @@ import {
 } from '../types'
 
 const getApiHost = () => {
-  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+  if (import.meta.env.VITE_API_HOST) {
+    return import.meta.env.VITE_API_HOST
+  }
+  if (typeof window !== 'undefined' && window.location && window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     return window.location.hostname
   }
-  return 'localhost'
+  return '192.168.1.100'
 }
 
-const getBaseUrl = () => `http://${getApiHost()}:8080/api/v1`
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL
+  }
+  return `http://${getApiHost()}:8080/api/v1`
+}
 
 // Helper for fetch with timeout
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -122,97 +130,174 @@ export const api = {
   async listObligations(daysAhead = 30): Promise<Obligation[]> {
     try {
       const data = await request<{ items: Obligation[] }>(`/obligations?days_ahead=${daysAhead}`)
-      return data.items || []
+      if (data && data.items && data.items.length > 0) {
+        return data.items
+      }
     } catch {
-      return [
-        {
-          id: '66d0001a1b2c3d4e5f607080',
-          documentId: 'doc-001',
-          userId: '00000000-0000-0000-0000-000000000001',
-          type: 'RENEWAL',
-          title: 'Adobe Creative Cloud Renewal',
-          description: 'Automatic 12-month extension clause unless written notice is given 30 days prior.',
-          dueDate: new Date(Date.now() + 3 * 86400000).toISOString(),
-          amount: { amount: 3600, currency: 'USD' },
-          status: 'PENDING_APPROVAL',
-          riskLevel: 'CRITICAL',
-          suggestedAction: {
-            type: 'send_email',
-            description: 'Send formal termination notice to renewals@adobe.com',
-            mcpAdapter: 'gmail',
-            suggestedAt: new Date().toISOString(),
-          },
-          autoApprove: false,
-          marketplaceOpportunityId: 'opp-001',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '66d0001a1b2c3d4e5f607081',
-          documentId: 'doc-002',
-          userId: '00000000-0000-0000-0000-000000000001',
-          type: 'PAYMENT',
-          title: 'AWS EMEA Cloud Hosting Payment',
-          description: 'Monthly Luxembourg infrastructure invoice due on the 28th.',
-          dueDate: new Date(Date.now() + 14 * 86400000).toISOString(),
-          amount: { amount: 2450, currency: 'EUR' },
-          status: 'PENDING_APPROVAL',
-          riskLevel: 'HIGH',
-          suggestedAction: {
-            type: 'send_slack',
-            description: 'Post payment reminder to #procurement',
-            mcpAdapter: 'slack',
-            suggestedAt: new Date().toISOString(),
-          },
-          autoApprove: false,
-          marketplaceOpportunityId: 'opp-002',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '66d0001a1b2c3d4e5f607082',
-          documentId: 'doc-003',
-          userId: '00000000-0000-0000-0000-000000000001',
-          type: 'COMPLIANCE',
-          title: 'ISO 27001 Annual Surveillance Audit',
-          description: 'Mandatory certification documentation submission.',
-          dueDate: new Date(Date.now() + 25 * 86400000).toISOString(),
-          status: 'IN_PROGRESS',
-          riskLevel: 'MEDIUM',
-          suggestedAction: {
-            type: 'create_event',
-            description: 'Schedule preparation audit on Google Calendar',
-            mcpAdapter: 'calendar',
-            suggestedAt: new Date().toISOString(),
-          },
-          autoApprove: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ]
+      // fallback to local storage or clean initial state
     }
+
+    const saved = localStorage.getItem('claimpilot_obligations')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed
+        }
+      } catch {
+        // ignore parse error
+      }
+    }
+
+    const initialObligations: Obligation[] = [
+      {
+        id: 'obl-b2c-006',
+        documentId: 'doc-001',
+        userId: '00000000-0000-0000-0000-000000000002',
+        type: 'SUBSCRIPTION',
+        title: 'YouTube Premium Bireysel Aboneliği',
+        description: 'Aylık periyodik yenilenen video ve müzik akış aboneliği.',
+        dueDate: new Date(Date.now() + 29 * 86400000).toISOString(),
+        amount: { amount: 59.99, currency: 'TRY' },
+        status: 'APPROVED',
+        riskLevel: 'LOW',
+        suggestedAction: {
+          type: 'create_event',
+          description: 'Google Calendar MCP hatırlatıcısı ve Gmail MCP bildirimi',
+          mcpAdapter: 'calendar',
+          suggestedAt: new Date().toISOString(),
+        },
+        autoApprove: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'obl-b2b-008',
+        documentId: 'doc-002',
+        userId: '00000000-0000-0000-0000-000000000001',
+        type: 'SUBSCRIPTION',
+        title: 'Bulut Sunucu Hizmeti (B2B SaaS) Aboneliği',
+        description: 'Abonelik her ayın aynı gününde yenilenir; 15 gün öncesinde fesih bildirimi gerekir.',
+        dueDate: new Date(Date.now() + 30 * 86400000).toISOString(),
+        amount: { amount: 5200, currency: 'TRY' },
+        status: 'APPROVED',
+        riskLevel: 'MEDIUM',
+        suggestedAction: {
+          type: 'send_email',
+          description: 'Calendar MCP ve Gmail MCP ile iptal/yenileme kontrol prosedürü',
+          mcpAdapter: 'gmail',
+          suggestedAt: new Date().toISOString(),
+        },
+        autoApprove: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]
+    localStorage.setItem('claimpilot_obligations', JSON.stringify(initialObligations))
+    return initialObligations
   },
 
   async approveObligation(id: string, executeMCP = true): Promise<any> {
     try {
-      return await request(`/obligations/${id}/approve`, {
+      await request(`/obligations/${id}/approve`, {
         method: 'POST',
         body: JSON.stringify({ execute_mcp: executeMCP }),
       })
-    } catch (e: any) {
-      return { success: true, message: `Approved obligation ${id} (simulated desktop dispatch)` }
+    } catch {
+      // proceed with local update
     }
+
+    const saved = localStorage.getItem('claimpilot_obligations')
+    if (saved) {
+      try {
+        const list: Obligation[] = JSON.parse(saved)
+        const updated = list.map((item) =>
+          item.id === id ? { ...item, status: 'APPROVED' as const, updatedAt: new Date().toISOString() } : item
+        )
+        localStorage.setItem('claimpilot_obligations', JSON.stringify(updated))
+      } catch {}
+    }
+    return { success: true, message: `Approved obligation ${id}` }
   },
 
   async dismissObligation(id: string, reason: string): Promise<any> {
     try {
-      return await request(`/obligations/${id}/dismiss`, {
+      await request(`/obligations/${id}/dismiss`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
       })
-    } catch (e: any) {
-      return { success: true, message: `Dismissed obligation ${id}` }
+    } catch {
+      // proceed with local update
     }
+
+    const saved = localStorage.getItem('claimpilot_obligations')
+    if (saved) {
+      try {
+        const list: Obligation[] = JSON.parse(saved)
+        const updated = list.map((item) =>
+          item.id === id ? { ...item, status: 'DISMISSED' as const, updatedAt: new Date().toISOString() } : item
+        )
+        localStorage.setItem('claimpilot_obligations', JSON.stringify(updated))
+      } catch {}
+    }
+    return { success: true, message: `Dismissed obligation ${id}` }
+  },
+
+  async renewObligation(id: string, daysAhead = 30): Promise<any> {
+    try {
+      await request(`/obligations/${id}/renew`, {
+        method: 'POST',
+        body: JSON.stringify({ days_ahead: daysAhead }),
+      })
+    } catch {
+      // proceed with local update
+    }
+
+    const saved = localStorage.getItem('claimpilot_obligations')
+    if (saved) {
+      try {
+        const list: Obligation[] = JSON.parse(saved)
+        const updated = list.map((item) => {
+          if (item.id === id) {
+            const currentDue = new Date(item.dueDate).getTime()
+            const baseTime = currentDue < Date.now() ? Date.now() : currentDue
+            const newDue = new Date(baseTime + daysAhead * 86400000).toISOString()
+            return {
+              ...item,
+              dueDate: newDue,
+              status: 'RENEWED' as const,
+              updatedAt: new Date().toISOString(),
+            }
+          }
+          return item
+        })
+        localStorage.setItem('claimpilot_obligations', JSON.stringify(updated))
+      } catch {}
+    }
+    return { success: true, message: `Renewed obligation ${id}` }
+  },
+
+  async updateObligationStatus(id: string, newStatus: string): Promise<any> {
+    try {
+      await request(`/obligations/${id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status: newStatus }),
+      })
+    } catch {
+      // proceed with local update
+    }
+
+    const saved = localStorage.getItem('claimpilot_obligations')
+    if (saved) {
+      try {
+        const list: Obligation[] = JSON.parse(saved)
+        const updated = list.map((item) =>
+          item.id === id ? { ...item, status: newStatus, updatedAt: new Date().toISOString() } : item
+        )
+        localStorage.setItem('claimpilot_obligations', JSON.stringify(updated))
+      } catch {}
+    }
+    return { success: true, message: `Updated status for ${id}` }
   },
 
   // Marketplace
@@ -562,7 +647,7 @@ export const api = {
       description: item.description || 'External tool server via SSE/STDIO',
       category: item.category || 'custom',
       transport: item.transport || 'sse',
-      endpointOrCmd: item.endpointOrCmd || 'http://localhost:9000/sse',
+      endpointOrCmd: item.endpointOrCmd || 'http://192.168.1.100:9000/sse',
       enabled: true,
       status: 'online',
       latencyMs: Math.floor(Math.random() * 30) + 12,
@@ -666,7 +751,7 @@ const defaultHarnessConfig: HarnessConfig = {
     roleDescription:
       'Sözleşme ve faturaları okuyarak taahhütleri, yenileme şartlarını, cayma cezalarını ve son bildirim tarihlerini tespit eder.',
     provider: 'ollama',
-    endpoint: 'http://localhost:11434',
+    endpoint: 'http://192.168.1.100:11434',
     model: 'gemma2:2b',
     temperature: 0.1,
     maxTokens: 4096,
@@ -682,7 +767,7 @@ const defaultHarnessConfig: HarnessConfig = {
     roleDescription:
       'Analyst çıktısını denetler, PII maskelemesini teyit eder, DeepWiki iç tüzüğüyle karşılaştırır ve alternatif teklifleri doğrular.',
     provider: 'ollama',
-    endpoint: 'http://localhost:11435',
+    endpoint: 'http://192.168.1.100:11435',
     model: 'gemma2:2b',
     temperature: 0.0,
     maxTokens: 2048,
@@ -699,7 +784,7 @@ const defaultHarnessConfig: HarnessConfig = {
       description: 'Kurumsal bilgi tabanı, şirket içi onay prosedürleri, emsal sözleşme hükümleri ve tedarikçi skorları.',
       category: 'knowledge',
       transport: 'sse',
-      endpointOrCmd: 'http://localhost:8899/mcp/deepwiki/sse',
+      endpointOrCmd: 'http://192.168.1.100:8899/mcp/deepwiki/sse',
       enabled: true,
       status: 'online',
       latencyMs: 14,

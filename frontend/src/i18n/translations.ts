@@ -129,6 +129,10 @@ export interface TranslationDict {
   // Toast Notifications
   toastApproved: string
   toastDismissed: string
+  toastRenewed: string
+  toastStatusUpdated: string
+  renew: string
+  renewed: string
   toastRfqCollected: string
   toastDealClosed: string
   toastUploadSuccess: string
@@ -312,6 +316,10 @@ export const translations: Record<Language, TranslationDict> = {
     // Toast Notifications
     toastApproved: 'Yükümlülük başarıyla onaylandı ve MCP eylemi tetiklendi.',
     toastDismissed: 'Yükümlülük reddedildi.',
+    toastRenewed: 'Yükümlülük başarıyla yenilendi ve son tarih uzatıldı.',
+    toastStatusUpdated: 'Yükümlülük durumu başarıyla güncellendi.',
+    renew: 'Yenile',
+    renewed: 'Yenilendi',
     toastRfqCollected: 'Tedarikçi teklifleri başarıyla toplandı!',
     toastDealClosed: 'Anlaşma başarıyla bağlandı! Geçiş süreci başlatıldı.',
     toastUploadSuccess: 'Belge başarıyla yüklendi ve analiz ediliyor.',
@@ -493,6 +501,10 @@ export const translations: Record<Language, TranslationDict> = {
     // Toast Notifications
     toastApproved: 'Obligation approved and MCP action triggered successfully.',
     toastDismissed: 'Obligation dismissed.',
+    toastRenewed: 'Obligation renewed and deadline extended successfully.',
+    toastStatusUpdated: 'Obligation status updated successfully.',
+    renew: 'Renew',
+    renewed: 'Renewed',
     toastRfqCollected: 'Supplier quotes collected successfully!',
     toastDealClosed: 'Deal closed successfully! Vendor switch initiated.',
     toastUploadSuccess: 'Document uploaded and analysis in progress.',

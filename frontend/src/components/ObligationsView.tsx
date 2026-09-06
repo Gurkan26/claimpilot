@@ -8,6 +8,7 @@ import {
   XCircle,
   Search,
   X,
+  RefreshCw,
 } from 'lucide-react'
 import { Obligation } from '../types'
 import { useAuth } from '../context/AuthContext'
@@ -16,12 +17,16 @@ interface ObligationsViewProps {
   obligations: Obligation[]
   onApprove: (id: string) => void
   onDismiss: (id: string, reason: string) => void
+  onRenew?: (id: string) => void
+  onUpdateStatus?: (id: string, status: string) => void
 }
 
 export const ObligationsView: React.FC<ObligationsViewProps> = ({
   obligations,
   onApprove,
   onDismiss,
+  onRenew,
+  onUpdateStatus,
 }) => {
   const { user, t } = useAuth()
   const [filterDays, setFilterDays] = useState<number>(30)
@@ -29,76 +34,7 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
   const [dismissingId, setDismissingId] = useState<string | null>(null)
   const [dismissReason, setDismissReason] = useState('')
 
-  const isB2B = user.accountType === 'b2b'
-
-  // Personal B2C demo items if user switched to personal
-  const personalObligations: Obligation[] = [
-    {
-      id: 'b2c-001',
-      documentId: 'doc-p-01',
-      userId: '00000000-0000-0000-0000-000000000001',
-      type: 'WARRANTY',
-      title: 'Anadolu Sigorta Araç Kaskosu Yenileme',
-      description: 'Poliçe vadesi 3 gün içinde doluyor. Hasarsızlık indirimi hakkı mevcuttur.',
-      dueDate: new Date(Date.now() + 3 * 86400000).toISOString(),
-      amount: { amount: 18500, currency: 'TRY' },
-      status: 'PENDING_APPROVAL',
-      riskLevel: 'CRITICAL',
-      suggestedAction: {
-        type: 'send_email',
-        description: 'Aksigorta ve Sompo alternatif tekliflerini karşılaştır',
-        mcpAdapter: 'gmail',
-        suggestedAt: new Date().toISOString(),
-      },
-      autoApprove: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'b2c-002',
-      documentId: 'doc-p-02',
-      userId: '00000000-0000-0000-0000-000000000001',
-      type: 'RENEWAL',
-      title: 'Kadıköy Konut Kira Sözleşmesi TÜFE Artışı',
-      description: 'Yıllık kira artış oranı bildirimi ve TÜFE tavan oranı denetimi.',
-      dueDate: new Date(Date.now() + 18 * 86400000).toISOString(),
-      amount: { amount: 32000, currency: 'TRY' },
-      status: 'PENDING_APPROVAL',
-      riskLevel: 'HIGH',
-      suggestedAction: {
-        type: 'create_event',
-        description: 'Ev sahibi ile TÜFE oranında yenileme görüşmesi takvime ekle',
-        mcpAdapter: 'calendar',
-        suggestedAt: new Date().toISOString(),
-      },
-      autoApprove: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'b2c-003',
-      documentId: 'doc-p-03',
-      userId: '00000000-0000-0000-0000-000000000001',
-      type: 'PAYMENT',
-      title: 'Turkcell Superonline 1000 Mbps Fiber Taahhüt Sonu',
-      description: '24 aylık kampanya sonu; taahhütsüz tarifeye geçmeden yenileme yapılmalı.',
-      dueDate: new Date(Date.now() + 28 * 86400000).toISOString(),
-      amount: { amount: 490, currency: 'TRY' },
-      status: 'IN_PROGRESS',
-      riskLevel: 'MEDIUM',
-      suggestedAction: {
-        type: 'send_slack',
-        description: 'Alternatif Türk Telekom ve Vodafone tekliflerini listele',
-        mcpAdapter: 'slack',
-        suggestedAt: new Date().toISOString(),
-      },
-      autoApprove: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ]
-
-  const activeList = isB2B ? obligations : personalObligations
+  const activeList = obligations
 
   const filtered = activeList.filter((o) => {
     return (
@@ -266,9 +202,39 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
                       <span className={`badge badge-${o.riskLevel.toLowerCase()}`}>{o.riskLevel}</span>
                     </td>
                     <td>
-                      <span style={{ fontSize: 12, color: o.status === 'RESOLVED' ? '#10b981' : 'var(--text-secondary)' }}>
-                        {o.status}
-                      </span>
+                      <select
+                        value={o.status}
+                        onChange={(e) => onUpdateStatus && onUpdateStatus(o.id, e.target.value)}
+                        style={{
+                          background:
+                            o.status === 'APPROVED' || o.status === 'RESOLVED' ? 'rgba(16, 185, 129, 0.15)' :
+                            o.status === 'RENEWED' ? 'rgba(6, 182, 212, 0.15)' :
+                            o.status === 'PENDING_APPROVAL' ? 'rgba(245, 158, 11, 0.15)' :
+                            o.status === 'IN_PROGRESS' ? 'rgba(59, 130, 246, 0.15)' :
+                            'rgba(148, 163, 184, 0.15)',
+                          color:
+                            o.status === 'APPROVED' || o.status === 'RESOLVED' ? '#34d399' :
+                            o.status === 'RENEWED' ? '#38bdf8' :
+                            o.status === 'PENDING_APPROVAL' ? '#fbbf24' :
+                            o.status === 'IN_PROGRESS' ? '#60a5fa' :
+                            '#94a3b8',
+                          border: '1px solid rgba(255, 255, 255, 0.12)',
+                          borderRadius: 6,
+                          padding: '3px 8px',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          outline: 'none',
+                        }}
+                        title="Durumu güncellemek için tıklayın"
+                      >
+                        <option value="PENDING_APPROVAL" style={{ background: '#090d16', color: '#fbbf24' }}>PENDING_APPROVAL</option>
+                        <option value="APPROVED" style={{ background: '#090d16', color: '#34d399' }}>APPROVED</option>
+                        <option value="RENEWED" style={{ background: '#090d16', color: '#38bdf8' }}>RENEWED</option>
+                        <option value="IN_PROGRESS" style={{ background: '#090d16', color: '#60a5fa' }}>IN_PROGRESS</option>
+                        <option value="RESOLVED" style={{ background: '#090d16', color: '#34d399' }}>RESOLVED</option>
+                        <option value="DISMISSED" style={{ background: '#090d16', color: '#94a3b8' }}>DISMISSED</option>
+                      </select>
                     </td>
                     <td>
                       {o.suggestedAction ? (
@@ -281,28 +247,51 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                        {/* Yenileme (Renew) Button */}
+                        <button
+                          className="btn btn-secondary"
+                          style={{
+                            fontSize: 11,
+                            padding: '4px 9px',
+                            borderColor: 'rgba(6, 182, 212, 0.4)',
+                            color: '#38bdf8',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                          title={t.renew || 'Yenile'}
+                          onClick={() => onRenew && onRenew(o.id)}
+                        >
+                          <RefreshCw size={12} /> {t.renew || 'Yenile'}
+                        </button>
+
                         {o.status === 'PENDING_APPROVAL' && (
                           <>
                             <button
                               className="btn btn-primary"
-                              style={{ fontSize: 12, padding: '4px 8px' }}
+                              style={{ fontSize: 11, padding: '4px 8px' }}
                               onClick={() => onApprove(o.id)}
                             >
-                              <CheckCircle size={13} /> {t.approve}
+                              <CheckCircle size={12} /> {t.approve}
                             </button>
                             <button
                               className="btn btn-secondary"
-                              style={{ fontSize: 12, padding: '4px 8px' }}
+                              style={{ fontSize: 11, padding: '4px 8px' }}
                               onClick={() => handleDismissClick(o.id)}
                             >
-                              <XCircle size={13} />
+                              <XCircle size={12} />
                             </button>
                           </>
                         )}
-                        {o.status === 'RESOLVED' && (
-                          <span style={{ color: '#10b981', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle size={13} /> {t.approved}
+                        {(o.status === 'APPROVED' || o.status === 'RESOLVED') && (
+                          <span style={{ color: '#10b981', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <CheckCircle size={12} /> {t.approved}
+                          </span>
+                        )}
+                        {o.status === 'RENEWED' && (
+                          <span style={{ color: '#38bdf8', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <CheckCircle size={12} /> {t.renewed || 'Yenilendi'}
                           </span>
                         )}
                       </div>

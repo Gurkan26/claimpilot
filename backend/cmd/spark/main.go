@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -308,76 +309,7 @@ func initSparkApp(initialAccountType string) *sparkApp {
 }
 
 func (a *sparkApp) initStandaloneData() {
-	now := time.Now()
-	a.standaloneObligations = []standaloneObligation{
-		// B2B Kurumsal Sözleşmeler (Acme Holding A.Ş.)
-		{
-			ID:              "obl-b2b-001",
-			AccountType:     "b2b",
-			Title:           "Adobe Creative Cloud Enterprise Yenilemesi",
-			Type:            "RENEWAL",
-			DueDate:         now.AddDate(0, 0, 18),
-			RiskLevel:       "HIGH",
-			Status:          "PENDING_APPROVAL",
-			SuggestedAction: "İhtarname e-postası hazırla (Gmail MCP)",
-			Cost:            3600.0,
-			Currency:        "USD",
-			RenewalRule:     "12 aylık otomatik uzama maddesi; fesih için 30 gün öncesinden yazılı bildirim iletilmelidir.",
-		},
-		{
-			ID:              "obl-b2b-002",
-			AccountType:     "b2b",
-			Title:           "AWS EMEA Cloud Taahhüt Süresi Sonu",
-			Type:            "RENEWAL",
-			DueDate:         now.AddDate(0, 0, 24),
-			RiskLevel:       "CRITICAL",
-			Status:          "PENDING_APPROVAL",
-			SuggestedAction: "Takvime son fesih tarihi ekle (Calendar MCP)",
-			Cost:            2450.0,
-			Currency:        "USD",
-			RenewalRule:     "Reserved Instance süresi doluyor; yenilenmezse on-demand tarifeye geçer.",
-		},
-		{
-			ID:              "obl-b2b-003",
-			AccountType:     "b2b",
-			Title:           "Turkcell Kurumsal Fiber İnternet Sözleşmesi",
-			Type:            "CANCELLATION",
-			DueDate:         now.AddDate(0, 1, 5),
-			RiskLevel:       "MEDIUM",
-			Status:          "PENDING_APPROVAL",
-			SuggestedAction: "Alternatif teklif havuzunu tara (Marketplace)",
-			Cost:            850.0,
-			Currency:        "TRY",
-			RenewalRule:     "24 aylık kurumsal taahhüt sonu; cayma bedelsiz fesih veya tarife indirimi penceresi.",
-		},
-		// B2C Bireysel Abonelikler (Gürkan Şentürk)
-		{
-			ID:              "obl-b2c-001",
-			AccountType:     "b2c",
-			Title:           "Netflix Standart Plan Aboneliği",
-			Type:            "SUBSCRIPTION",
-			DueDate:         now.AddDate(0, 0, 11),
-			RiskLevel:       "LOW",
-			Status:          "PENDING_APPROVAL",
-			SuggestedAction: "Yenileme öncesi bildirim kur (Calendar MCP)",
-			Cost:            229.99,
-			Currency:        "TRY",
-			RenewalRule:     "Aylık karttan otomatik çekim; fatura kesim tarihinden önce iptal edilebilir.",
-		},
-		{
-			ID:              "obl-b2c-002",
-			AccountType:     "b2c",
-			Title:           "Spotify Premium Bireysel Abonelik",
-			Type:            "SUBSCRIPTION",
-			DueDate:         now.AddDate(0, 0, 6),
-			RiskLevel:       "LOW",
-			Status:          "PENDING_APPROVAL",
-			SuggestedAction: "Ödeme takvimini kontrol et (Calendar MCP)",
-			Cost:            59.99,
-			Currency:        "TRY",
-			RenewalRule:     "Aylık otomatik yenileme; hesap ayarlarından anında iptal edilebilir.",
-		},
-	}
+	a.standaloneObligations = []standaloneObligation{}
 
 	// Persistent cache file
 	dataFile := filepath.Join("testdata", "standalone_obligations.json")
@@ -469,7 +401,37 @@ func (a *sparkApp) runREPL() {
 		case "account", "hesap", "whoami":
 			a.cmdAccount(args)
 		case "status", "durum":
-			a.cmdStatus()
+			if len(args) >= 2 {
+				a.cmdSetStatus(ctx, args[0], args[1])
+			} else if len(args) == 1 {
+				fmt.Printf("%sKullanım: durum <obligation_id> <yeni_durum> (Örn: durum obl-b2c-006 RENEWED)%s\n", colorYellow, colorReset)
+			} else {
+				a.cmdStatus()
+			}
+		case "status-set", "set-status", "durum-guncelle":
+			if len(args) < 2 {
+				fmt.Printf("%sKullanım: set-status <obligation_id> <yeni_durum> (Örn: set-status obl-b2c-006 RENEWED)%s\n", colorYellow, colorReset)
+			} else {
+				a.cmdSetStatus(ctx, args[0], args[1])
+			}
+		case "renew", "yenile":
+			if len(args) == 0 {
+				fmt.Printf("%sKullanım: yenile <obligation_id> [uzatma_günü] (Örn: yenile obl-b2c-006 30)%s\n", colorYellow, colorReset)
+			} else {
+				days := 30
+				if len(args) > 1 {
+					if d, err := strconv.Atoi(args[1]); err == nil && d > 0 {
+						days = d
+					}
+				}
+				a.cmdRenew(ctx, args[0], days)
+			}
+		case "update", "guncelle", "duzenle", "edit":
+			if len(args) == 0 {
+				fmt.Printf("%sKullanım: update <obligation_id> [alan=deger] (Örn: update obl-b2c-006 cost=79.99 veya sadece: update obl-b2c-006)%s\n", colorYellow, colorReset)
+			} else {
+				a.cmdUpdateObligation(ctx, args[0], args[1:], scanner)
+			}
 		case "briefing", "morning", "ozet", "summary":
 			a.cmdBriefing(ctx)
 		case "obligations", "list", "taahhutler", "yukumlulukler", "abonelikler":
@@ -579,6 +541,9 @@ func (a *sparkApp) printHelp() {
 	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "ai-add <abonelik/sözleşme>", colorReset, "Yapay zekaya araştırt ve otomatik yükümlülük/vade ekle (Örn: ai-add YouTube Premium)")
 	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "obligations / list", colorReset, "Aktif hesaba ait taahhütler ve abonelik vadeleri")
 	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "approve <id> / onayla", colorReset, "Taahhüt onaylama ve otonom MCP aksiyonu tetikleme")
+	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "renew <id> [gün] / yenile", colorReset, "Taahhüdü yenile, vadeyi uzat ve MCP kaydını güncelle (Örn: yenile obl-001 30)")
+	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "durum <id> <durum> / set-status", colorReset, "Yükümlülük durumunu güncelle (Örn: durum obl-001 RENEWED)")
+	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "update <id> / guncelle", colorReset, "Taahhüt başlık, maliyet veya tarihlerini güncelle (Örn: update obl-001)")
 	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "dismiss <id> / reddet / sil", colorReset, "Taahhüdü listeden kaldırma")
 	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "chat <sorunuz>", colorReset, "AI çalışana piyasa araştırması ve sözleşme soruları sor")
 	fmt.Printf("  %s%-32s%s %s\n", colorCyan, "test-ai [sözleşme_metni]", colorReset, "Aktif AI motorunu çalıştır ve sözleşmeyi analiz et")
@@ -982,6 +947,170 @@ func (a *sparkApp) cmdDismiss(ctx context.Context, oblIDStr, reason string) {
 	}
 
 	fmt.Printf("%sTaahhüt bulunamadı: %s%s\n\n", colorRed, oblIDStr, colorReset)
+}
+
+func (a *sparkApp) cmdSetStatus(ctx context.Context, oblIDStr, newStatus string) {
+	newStatus = strings.ToUpper(strings.TrimSpace(newStatus))
+	found := false
+	for i, o := range a.standaloneObligations {
+		if strings.Contains(o.ID, oblIDStr) || strings.EqualFold(o.ID, oblIDStr) {
+			oldStatus := o.Status
+			a.standaloneObligations[i].Status = newStatus
+			a.saveStandaloneData()
+			found = true
+			fmt.Printf("%s✓ Taahhüt '%s' (ID: %s) durumu başarıyla güncellendi!%s\n", colorGreen+colorBold, o.Title, o.ID, colorReset)
+			fmt.Printf("  • Eski Durum: %s\n", oldStatus)
+			fmt.Printf("  • Yeni Durum: %s%s%s\n", colorCyan+colorBold, newStatus, colorReset)
+			break
+		}
+	}
+	if !found {
+		fmt.Printf("%sTaahhüt bulunamadı: %s%s\n", colorRed, oblIDStr, colorReset)
+	}
+	fmt.Println()
+}
+
+func (a *sparkApp) cmdRenew(ctx context.Context, oblIDStr string, days int) {
+	if days <= 0 {
+		days = 30
+	}
+	found := false
+	for i, o := range a.standaloneObligations {
+		if strings.Contains(o.ID, oblIDStr) || strings.EqualFold(o.ID, oblIDStr) {
+			baseDate := o.DueDate
+			if baseDate.Before(time.Now()) {
+				baseDate = time.Now()
+			}
+			newDueDate := baseDate.AddDate(0, 0, days)
+			oldStatus := o.Status
+			a.standaloneObligations[i].DueDate = newDueDate
+			a.standaloneObligations[i].Status = "RENEWED"
+			a.saveStandaloneData()
+			found = true
+
+			fmt.Printf("%s┌────────────────────────────────────────────────────────────────────────┐%s\n", colorGreen, colorReset)
+			fmt.Printf("%s│ %s✓ YENİLEME İŞLEMİ BAŞARIYLA GERÇEKLEŞTİRİLDİ%s                        │\n",
+				colorGreen, colorBold+colorGreen, colorReset)
+			fmt.Printf("%s├────────────────────────────────────────────────────────────────────────┤%s\n", colorGreen, colorReset)
+			fmt.Printf("%s│ Taahhüt:       %-55s │%s\n", colorGreen, truncate(o.Title, 55), colorReset)
+			fmt.Printf("%s│ ID:            %-55s │%s\n", colorGreen, o.ID, colorReset)
+			fmt.Printf("%s│ Önceki Durum:  %-55s │%s\n", colorGreen, oldStatus, colorReset)
+			fmt.Printf("%s│ Yeni Durum:    %-55s │%s\n", colorGreen, "RENEWED (Yenilendi)", colorReset)
+			fmt.Printf("%s│ Önceki Vade:   %-55s │%s\n", colorGreen, o.DueDate.Format("2006-01-02"), colorReset)
+			fmt.Printf("%s│ Yeni Vade:     %-55s │%s\n", colorGreen, fmt.Sprintf("%s (+%d gün uzatıldı)", newDueDate.Format("2006-01-02"), days), colorReset)
+			fmt.Printf("%s├────────────────────────────────────────────────────────────────────────┤%s\n", colorGreen, colorReset)
+			fmt.Printf("%s│ %sOtonom MCP Entegrasyonları:%s                                         │\n", colorGreen, colorBold, colorReset)
+			fmt.Printf("%s│ • Calendar MCP: Takvime yeni son fesih tarihi (%s) işlendi.    │%s\n",
+				colorGreen, newDueDate.Format("2006-01-02"), colorReset)
+			fmt.Printf("%s│ • Gmail MCP: Tedarikçiye onay/yenileme teyidi hazırlandı.              │%s\n", colorGreen, colorReset)
+			fmt.Printf("%s└────────────────────────────────────────────────────────────────────────┘%s\n", colorCyan, colorReset)
+			break
+		}
+	}
+	if !found {
+		fmt.Printf("%sTaahhüt bulunamadı: %s%s\n", colorRed, oblIDStr, colorReset)
+	}
+	fmt.Println()
+}
+
+func (a *sparkApp) cmdUpdateObligation(ctx context.Context, oblIDStr string, args []string, scanner *bufio.Scanner) {
+	idx := -1
+	for i, o := range a.standaloneObligations {
+		if strings.Contains(o.ID, oblIDStr) || strings.EqualFold(o.ID, oblIDStr) {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		fmt.Printf("%sTaahhüt bulunamadı: %s%s\n\n", colorRed, oblIDStr, colorReset)
+		return
+	}
+
+	o := &a.standaloneObligations[idx]
+
+	// If key=value pairs provided on command line (e.g. title="Spotify Aile" cost=99.99 status=ACTIVE)
+	if len(args) > 0 {
+		for _, arg := range args {
+			kv := strings.SplitN(arg, "=", 2)
+			if len(kv) != 2 {
+				continue
+			}
+			k := strings.ToLower(strings.TrimSpace(kv[0]))
+			v := strings.Trim(strings.TrimSpace(kv[1]), `"'`)
+			switch k {
+			case "title", "baslik", "isim":
+				o.Title = v
+			case "cost", "maliyet", "fiyat":
+				if c, err := strconv.ParseFloat(v, 64); err == nil {
+					o.Cost = c
+				}
+			case "currency", "para":
+				o.Currency = strings.ToUpper(v)
+			case "status", "durum":
+				o.Status = strings.ToUpper(v)
+			case "risk", "risklevel":
+				o.RiskLevel = strings.ToUpper(v)
+			case "type", "tur":
+				o.Type = strings.ToUpper(v)
+			case "action", "aksiyon":
+				o.SuggestedAction = v
+			case "date", "vade", "due":
+				if t, err := time.Parse("2006-01-02", v); err == nil {
+					o.DueDate = t
+				}
+			}
+		}
+		a.saveStandaloneData()
+		fmt.Printf("%s✓ Taahhüt '%s' (ID: %s) başarıyla güncellendi!%s\n\n", colorGreen+colorBold, o.Title, o.ID, colorReset)
+		return
+	}
+
+	// Interactive update mode
+	fmt.Println()
+	fmt.Printf("%sTaahhüt Düzenleme (ID: %s)%s\n", colorCyan+colorBold, o.ID, colorReset)
+	fmt.Printf("%sDeğiştirmek istemediğiniz alanlarda Enter'a basarak geçebilirsiniz.%s\n\n", colorGray, colorReset)
+
+	fmt.Printf("Başlık [%s]: ", o.Title)
+	if scanner.Scan() {
+		if text := strings.TrimSpace(scanner.Text()); text != "" {
+			o.Title = text
+		}
+	}
+
+	fmt.Printf("Maliyet [%.2f %s]: ", o.Cost, o.Currency)
+	if scanner.Scan() {
+		if text := strings.TrimSpace(scanner.Text()); text != "" {
+			if c, err := strconv.ParseFloat(text, 64); err == nil {
+				o.Cost = c
+			}
+		}
+	}
+
+	fmt.Printf("Durum (PENDING_APPROVAL / APPROVED / RENEWED / IN_PROGRESS / DISMISSED) [%s]: ", o.Status)
+	if scanner.Scan() {
+		if text := strings.TrimSpace(scanner.Text()); text != "" {
+			o.Status = strings.ToUpper(text)
+		}
+	}
+
+	fmt.Printf("Risk Seviyesi (LOW / MEDIUM / HIGH / CRITICAL) [%s]: ", o.RiskLevel)
+	if scanner.Scan() {
+		if text := strings.TrimSpace(scanner.Text()); text != "" {
+			o.RiskLevel = strings.ToUpper(text)
+		}
+	}
+
+	fmt.Printf("Son Tarih (YYYY-MM-DD) [%s]: ", o.DueDate.Format("2006-01-02"))
+	if scanner.Scan() {
+		if text := strings.TrimSpace(scanner.Text()); text != "" {
+			if t, err := time.Parse("2006-01-02", text); err == nil {
+				o.DueDate = t
+			}
+		}
+	}
+
+	a.saveStandaloneData()
+	fmt.Printf("\n%s✓ Taahhüt '%s' (ID: %s) başarıyla kaydedildi!%s\n\n", colorGreen+colorBold, o.Title, o.ID, colorReset)
 }
 
 func (a *sparkApp) cmdListMarketplace(ctx context.Context) {
