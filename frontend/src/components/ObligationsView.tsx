@@ -8,7 +8,9 @@ import {
   XCircle,
   Search,
   X,
+  Sparkles,
   RefreshCw,
+  Tag,
 } from 'lucide-react'
 import { Obligation } from '../types'
 import { useAuth } from '../context/AuthContext'
@@ -19,6 +21,8 @@ interface ObligationsViewProps {
   onDismiss: (id: string, reason: string) => void
   onRenew?: (id: string) => void
   onUpdateStatus?: (id: string, status: string) => void
+  onTriggerRFQ?: (id?: string) => Promise<any>
+  onNavigateToMarketplace?: () => void
 }
 
 export const ObligationsView: React.FC<ObligationsViewProps> = ({
@@ -27,16 +31,19 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
   onDismiss,
   onRenew,
   onUpdateStatus,
+  onTriggerRFQ,
+  onNavigateToMarketplace,
 }) => {
   const { user, t } = useAuth()
   const [filterDays, setFilterDays] = useState<number>(30)
   const [searchQuery, setSearchQuery] = useState('')
   const [dismissingId, setDismissingId] = useState<string | null>(null)
   const [dismissReason, setDismissReason] = useState('')
+  const [loadingRfqId, setLoadingRfqId] = useState<string | null>(null)
 
-  const activeList = obligations
+  const isB2B = user.accountType === 'b2b'
 
-  const filtered = activeList.filter((o) => {
+  const filtered = obligations.filter((o) => {
     return (
       o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -74,6 +81,20 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
     setDismissReason('')
   }
 
+  const handleCollectQuotesForObligation = async (id?: string) => {
+    if (id) setLoadingRfqId(id)
+    try {
+      if (onTriggerRFQ) {
+        await onTriggerRFQ(id)
+      }
+      if (onNavigateToMarketplace) {
+        onNavigateToMarketplace()
+      }
+    } finally {
+      setLoadingRfqId(null)
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -81,6 +102,21 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
           <h1>{t.obligationsTitle}</h1>
           <p className="page-subtitle">{t.obligationsSubtitle}</p>
         </div>
+
+        <button
+          className="btn btn-secondary"
+          onClick={() => handleCollectQuotesForObligation()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+            padding: '8px 14px',
+          }}
+        >
+          <Sparkles size={14} color="#38bdf8" />
+          <span>🤖 AI ile Tüm Teklifleri Sorgula</span>
+        </button>
       </div>
 
       {/* Filter and Search Bar */}
@@ -178,122 +214,179 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
                   (new Date(o.dueDate).getTime() - Date.now()) / (1000 * 3600 * 24)
                 )
 
+                const isCritical = daysRemaining <= 3 || o.riskLevel === 'CRITICAL'
+
                 return (
                   <tr key={o.id} className={dismissingId === o.id ? 'row-highlight' : ''}>
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{o.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {o.description.slice(0, 52)}...
+                        {o.description.length > 60 ? `${o.description.slice(0, 60)}...` : o.description}
                       </div>
                     </td>
-                    <td>{o.type}</td>
+
                     <td>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                        {new Date(o.dueDate).toLocaleDateString()}
-                        <span style={{ color: daysRemaining <= 3 ? '#ef4444' : '#f59e0b', fontWeight: 600 }}>
-                          ({daysRemaining} {t.daysLeft})
-                        </span>
+                      <span className="badge badge-medium" style={{ textTransform: 'uppercase', fontSize: 10 }}>
+                        {o.type}
                       </span>
                     </td>
-                    <td className="card-value mono" style={{ fontSize: 13 }}>
+
+                    <td>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: isCritical ? '#ef4444' : 'var(--text-primary)' }}>
+                        {new Date(o.dueDate).toLocaleDateString('tr-TR')}
+                      </div>
+                      <div style={{ fontSize: 11, color: isCritical ? '#ef4444' : 'var(--text-muted)' }}>
+                        {daysRemaining <= 0 ? 'Bugün doluyor' : `${daysRemaining} ${t.daysLeft}`}
+                      </div>
+                    </td>
+
+                    <td className="mono" style={{ fontWeight: 600 }}>
                       {o.amount ? `${o.amount.amount.toLocaleString()} ${o.amount.currency}` : '—'}
                     </td>
+
                     <td>
-                      <span className={`badge badge-${o.riskLevel.toLowerCase()}`}>{o.riskLevel}</span>
-                    </td>
-                    <td>
-                      <select
-                        value={o.status}
-                        onChange={(e) => onUpdateStatus && onUpdateStatus(o.id, e.target.value)}
-                        style={{
-                          background:
-                            o.status === 'APPROVED' || o.status === 'RESOLVED' ? 'rgba(16, 185, 129, 0.15)' :
-                            o.status === 'RENEWED' ? 'rgba(6, 182, 212, 0.15)' :
-                            o.status === 'PENDING_APPROVAL' ? 'rgba(245, 158, 11, 0.15)' :
-                            o.status === 'IN_PROGRESS' ? 'rgba(59, 130, 246, 0.15)' :
-                            'rgba(148, 163, 184, 0.15)',
-                          color:
-                            o.status === 'APPROVED' || o.status === 'RESOLVED' ? '#34d399' :
-                            o.status === 'RENEWED' ? '#38bdf8' :
-                            o.status === 'PENDING_APPROVAL' ? '#fbbf24' :
-                            o.status === 'IN_PROGRESS' ? '#60a5fa' :
-                            '#94a3b8',
-                          border: '1px solid rgba(255, 255, 255, 0.12)',
-                          borderRadius: 6,
-                          padding: '3px 8px',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          outline: 'none',
-                        }}
-                        title="Durumu güncellemek için tıklayın"
+                      <span
+                        className={`badge ${
+                          o.riskLevel === 'CRITICAL'
+                            ? 'badge-critical'
+                            : o.riskLevel === 'HIGH'
+                            ? 'badge-high'
+                            : o.riskLevel === 'MEDIUM'
+                            ? 'badge-medium'
+                            : 'badge-low'
+                        }`}
                       >
-                        <option value="PENDING_APPROVAL" style={{ background: '#090d16', color: '#fbbf24' }}>PENDING_APPROVAL</option>
-                        <option value="APPROVED" style={{ background: '#090d16', color: '#34d399' }}>APPROVED</option>
-                        <option value="RENEWED" style={{ background: '#090d16', color: '#38bdf8' }}>RENEWED</option>
-                        <option value="IN_PROGRESS" style={{ background: '#090d16', color: '#60a5fa' }}>IN_PROGRESS</option>
-                        <option value="RESOLVED" style={{ background: '#090d16', color: '#34d399' }}>RESOLVED</option>
-                        <option value="DISMISSED" style={{ background: '#090d16', color: '#94a3b8' }}>DISMISSED</option>
-                      </select>
+                        {o.riskLevel}
+                      </span>
                     </td>
+
                     <td>
-                      {o.suggestedAction ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-                          {getAdapterIcon(o.suggestedAction.mcpAdapter)}
-                          <span style={{ textTransform: 'capitalize' }}>{o.suggestedAction.mcpAdapter}</span>
-                        </span>
+                      {onUpdateStatus ? (
+                        <select
+                          value={o.status}
+                          onChange={(e) => onUpdateStatus(o.id, e.target.value)}
+                          style={{
+                            background:
+                              o.status === 'APPROVED' || o.status === 'RESOLVED' ? 'rgba(16, 185, 129, 0.15)' :
+                              o.status === 'RENEWED' ? 'rgba(6, 182, 212, 0.15)' :
+                              o.status === 'PENDING_APPROVAL' ? 'rgba(245, 158, 11, 0.15)' :
+                              o.status === 'IN_PROGRESS' ? 'rgba(59, 130, 246, 0.15)' :
+                              'rgba(148, 163, 184, 0.15)',
+                            color:
+                              o.status === 'APPROVED' || o.status === 'RESOLVED' ? '#34d399' :
+                              o.status === 'RENEWED' ? '#38bdf8' :
+                              o.status === 'PENDING_APPROVAL' ? '#fbbf24' :
+                              o.status === 'IN_PROGRESS' ? '#60a5fa' :
+                              '#94a3b8',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: 6,
+                            padding: '3px 8px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            outline: 'none',
+                          }}
+                          title="Durumu güncellemek için tıklayın"
+                        >
+                          <option value="PENDING_APPROVAL" style={{ background: '#090d16', color: '#fbbf24' }}>Onay Bekliyor</option>
+                          <option value="APPROVED" style={{ background: '#090d16', color: '#34d399' }}>Aktif Takipte</option>
+                          <option value="RENEWED" style={{ background: '#090d16', color: '#38bdf8' }}>Yenilendi</option>
+                          <option value="IN_PROGRESS" style={{ background: '#090d16', color: '#60a5fa' }}>İşlemde</option>
+                          <option value="RESOLVED" style={{ background: '#090d16', color: '#34d399' }}>Çözümlendi</option>
+                          <option value="DISMISSED" style={{ background: '#090d16', color: '#94a3b8' }}>Reddedildi</option>
+                        </select>
                       ) : (
-                        '—'
+                        <span
+                          className="badge"
+                          style={{
+                            backgroundColor:
+                              o.status === 'APPROVED'
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : o.status === 'PENDING_APPROVAL'
+                                ? 'rgba(245, 158, 11, 0.15)'
+                                : 'rgba(56, 189, 248, 0.15)',
+                            color:
+                              o.status === 'APPROVED'
+                                ? '#34d399'
+                                : o.status === 'PENDING_APPROVAL'
+                                ? '#fbbf24'
+                                : '#38bdf8',
+                          }}
+                        >
+                          {o.status === 'APPROVED' ? 'Aktif Takipte' : o.status === 'PENDING_APPROVAL' ? 'Onay Bekliyor' : o.status}
+                        </span>
                       )}
                     </td>
+
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                        {getAdapterIcon(o.suggestedAction?.mcpAdapter)}
+                        <span>{o.suggestedAction?.description || 'Aksiyon tanımlı'}</span>
+                      </div>
+                    </td>
+
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                        {/* Yenileme (Renew) Button */}
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
                         <button
                           className="btn btn-secondary"
-                          style={{
-                            fontSize: 11,
-                            padding: '4px 9px',
-                            borderColor: 'rgba(6, 182, 212, 0.4)',
-                            color: '#38bdf8',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                          }}
-                          title={t.renew || 'Yenile'}
-                          onClick={() => onRenew && onRenew(o.id)}
+                          style={{ fontSize: 11, padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          onClick={() => handleCollectQuotesForObligation(o.id)}
+                          disabled={loadingRfqId === o.id}
+                          title="Alternatif Tedarikçi Tekliflerini Sorgula"
                         >
-                          <RefreshCw size={12} /> {t.renew || 'Yenile'}
+                          <RefreshCw size={11} className={loadingRfqId === o.id ? 'spin' : ''} />
+                          <span>Teklif Topla</span>
                         </button>
 
-                        {o.status === 'PENDING_APPROVAL' && (
-                          <>
-                            <button
-                              className="btn btn-primary"
-                              style={{ fontSize: 11, padding: '4px 8px' }}
-                              onClick={() => onApprove(o.id)}
-                            >
-                              <CheckCircle size={12} /> {t.approve}
-                            </button>
-                            <button
-                              className="btn btn-secondary"
-                              style={{ fontSize: 11, padding: '4px 8px' }}
-                              onClick={() => handleDismissClick(o.id)}
-                            >
-                              <XCircle size={12} />
-                            </button>
-                          </>
+                        {onRenew && (
+                          <button
+                            className="btn btn-secondary"
+                            style={{
+                              fontSize: 11,
+                              padding: '4px 8px',
+                              borderColor: 'rgba(6, 182, 212, 0.4)',
+                              color: '#38bdf8',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                            title={t.renew || 'Yenile'}
+                            onClick={() => onRenew(o.id)}
+                          >
+                            <RefreshCw size={11} />
+                            <span>{t.renew || 'Yenile'}</span>
+                          </button>
                         )}
+
+                        {o.status === 'PENDING_APPROVAL' && (
+                          <button
+                            className="btn btn-primary"
+                            style={{ fontSize: 11, padding: '4px 10px' }}
+                            onClick={() => onApprove(o.id)}
+                          >
+                            <CheckCircle size={12} /> {t.approve}
+                          </button>
+                        )}
+
                         {(o.status === 'APPROVED' || o.status === 'RESOLVED') && (
                           <span style={{ color: '#10b981', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                             <CheckCircle size={12} /> {t.approved}
                           </span>
                         )}
+
                         {o.status === 'RENEWED' && (
                           <span style={{ color: '#38bdf8', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                             <CheckCircle size={12} /> {t.renewed || 'Yenilendi'}
                           </span>
                         )}
+
+                        <button
+                          className="btn btn-secondary"
+                          style={{ fontSize: 11, padding: '4px 8px', color: '#f87171' }}
+                          onClick={() => handleDismissClick(o.id)}
+                        >
+                          <XCircle size={12} />
+                        </button>
                       </div>
                     </td>
                   </tr>

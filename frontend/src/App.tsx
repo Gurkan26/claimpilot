@@ -107,7 +107,7 @@ const AppContent: React.FC = () => {
       if (window.claimpilotDesktop) {
         window.claimpilotDesktop.notify('ClaimPilot Yenileme', t.toastRenewed)
       }
-      loadData()
+      await loadData()
     } catch (e: any) {
       addToast('error', `${t.toastError} ${e.message}`)
     }
@@ -117,33 +117,33 @@ const AppContent: React.FC = () => {
     try {
       await api.updateObligationStatus(id, status)
       addToast('success', t.toastStatusUpdated)
-      loadData()
+      await loadData()
     } catch (e: any) {
       addToast('error', `${t.toastError} ${e.message}`)
     }
   }
 
-  const handleTriggerRFQ = async (oppId: string) => {
+  const handleTriggerRFQ = async (oppId?: string) => {
     try {
-      await api.triggerRFQ(oppId)
-      addToast('success', t.toastRfqCollected)
+      const res = await api.triggerRFQ(oppId)
+      addToast('success', res.message || t.toastRfqCollected)
       if (window.claimpilotDesktop) {
-        window.claimpilotDesktop.notify('ClaimPilot RFQ', t.toastRfqCollected)
+        window.claimpilotDesktop.notify('ClaimPilot RFQ', res.message || t.toastRfqCollected)
       }
-      loadData()
+      await loadData()
     } catch (e: any) {
       addToast('error', `${t.toastError} ${e.message}`)
     }
   }
 
-  const handleAcceptBid = async (oppId: string, bidId: string) => {
+  const handleAcceptBid = async (oppId: string, bidId: string, customNotes?: string) => {
     try {
-      await api.acceptBid(oppId, bidId)
-      addToast('success', t.toastDealClosed)
+      const res = await api.acceptBid(oppId, bidId, customNotes)
+      addToast('success', res.message || t.toastDealClosed)
       if (window.claimpilotDesktop) {
-        window.claimpilotDesktop.notify('Anlaşma Bağlandı!', t.toastDealClosed)
+        window.claimpilotDesktop.notify('Anlaşma Bağlandı!', res.message || t.toastDealClosed)
       }
-      loadData()
+      await loadData()
     } catch (e: any) {
       addToast('error', `${t.toastError} ${e.message}`)
     }
@@ -204,6 +204,8 @@ const AppContent: React.FC = () => {
                 onDismiss={handleDismiss}
                 onRenew={handleRenew}
                 onUpdateStatus={handleUpdateStatus}
+                onTriggerRFQ={handleTriggerRFQ}
+                onNavigateToMarketplace={() => setActiveTab('marketplace')}
               />
             )}
 
@@ -213,6 +215,7 @@ const AppContent: React.FC = () => {
                 metrics={metrics}
                 onTriggerRFQ={handleTriggerRFQ}
                 onAcceptBid={handleAcceptBid}
+                onNavigateToObligations={() => setActiveTab('obligations')}
               />
             )}
 
