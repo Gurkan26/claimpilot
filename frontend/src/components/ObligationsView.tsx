@@ -8,6 +8,9 @@ import {
   XCircle,
   Search,
   X,
+  Sparkles,
+  RefreshCw,
+  Tag,
 } from 'lucide-react'
 import { Obligation } from '../types'
 import { useAuth } from '../context/AuthContext'
@@ -16,91 +19,27 @@ interface ObligationsViewProps {
   obligations: Obligation[]
   onApprove: (id: string) => void
   onDismiss: (id: string, reason: string) => void
+  onTriggerRFQ?: (id?: string) => Promise<any>
+  onNavigateToMarketplace?: () => void
 }
 
 export const ObligationsView: React.FC<ObligationsViewProps> = ({
   obligations,
   onApprove,
   onDismiss,
+  onTriggerRFQ,
+  onNavigateToMarketplace,
 }) => {
   const { user, t } = useAuth()
   const [filterDays, setFilterDays] = useState<number>(30)
   const [searchQuery, setSearchQuery] = useState('')
   const [dismissingId, setDismissingId] = useState<string | null>(null)
   const [dismissReason, setDismissReason] = useState('')
+  const [loadingRfqId, setLoadingRfqId] = useState<string | null>(null)
 
   const isB2B = user.accountType === 'b2b'
 
-  // Personal B2C demo items if user switched to personal
-  const personalObligations: Obligation[] = [
-    {
-      id: 'b2c-001',
-      documentId: 'doc-p-01',
-      userId: '00000000-0000-0000-0000-000000000001',
-      type: 'WARRANTY',
-      title: 'Anadolu Sigorta Araç Kaskosu Yenileme',
-      description: 'Poliçe vadesi 3 gün içinde doluyor. Hasarsızlık indirimi hakkı mevcuttur.',
-      dueDate: new Date(Date.now() + 3 * 86400000).toISOString(),
-      amount: { amount: 18500, currency: 'TRY' },
-      status: 'PENDING_APPROVAL',
-      riskLevel: 'CRITICAL',
-      suggestedAction: {
-        type: 'send_email',
-        description: 'Aksigorta ve Sompo alternatif tekliflerini karşılaştır',
-        mcpAdapter: 'gmail',
-        suggestedAt: new Date().toISOString(),
-      },
-      autoApprove: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'b2c-002',
-      documentId: 'doc-p-02',
-      userId: '00000000-0000-0000-0000-000000000001',
-      type: 'RENEWAL',
-      title: 'Kadıköy Konut Kira Sözleşmesi TÜFE Artışı',
-      description: 'Yıllık kira artış oranı bildirimi ve TÜFE tavan oranı denetimi.',
-      dueDate: new Date(Date.now() + 18 * 86400000).toISOString(),
-      amount: { amount: 32000, currency: 'TRY' },
-      status: 'PENDING_APPROVAL',
-      riskLevel: 'HIGH',
-      suggestedAction: {
-        type: 'create_event',
-        description: 'Ev sahibi ile TÜFE oranında yenileme görüşmesi takvime ekle',
-        mcpAdapter: 'calendar',
-        suggestedAt: new Date().toISOString(),
-      },
-      autoApprove: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'b2c-003',
-      documentId: 'doc-p-03',
-      userId: '00000000-0000-0000-0000-000000000001',
-      type: 'PAYMENT',
-      title: 'Turkcell Superonline 1000 Mbps Fiber Taahhüt Sonu',
-      description: '24 aylık kampanya sonu; taahhütsüz tarifeye geçmeden yenileme yapılmalı.',
-      dueDate: new Date(Date.now() + 28 * 86400000).toISOString(),
-      amount: { amount: 490, currency: 'TRY' },
-      status: 'IN_PROGRESS',
-      riskLevel: 'MEDIUM',
-      suggestedAction: {
-        type: 'send_slack',
-        description: 'Alternatif Türk Telekom ve Vodafone tekliflerini listele',
-        mcpAdapter: 'slack',
-        suggestedAt: new Date().toISOString(),
-      },
-      autoApprove: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ]
-
-  const activeList = isB2B ? obligations : personalObligations
-
-  const filtered = activeList.filter((o) => {
+  const filtered = obligations.filter((o) => {
     return (
       o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       o.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -138,6 +77,20 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
     setDismissReason('')
   }
 
+  const handleCollectQuotesForObligation = async (id?: string) => {
+    if (id) setLoadingRfqId(id)
+    try {
+      if (onTriggerRFQ) {
+        await onTriggerRFQ(id)
+      }
+      if (onNavigateToMarketplace) {
+        onNavigateToMarketplace()
+      }
+    } finally {
+      setLoadingRfqId(null)
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
@@ -145,6 +98,21 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
           <h1>{t.obligationsTitle}</h1>
           <p className="page-subtitle">{t.obligationsSubtitle}</p>
         </div>
+
+        <button
+          className="btn btn-secondary"
+          onClick={() => handleCollectQuotesForObligation()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 12,
+            padding: '8px 14px',
+          }}
+        >
+          <Sparkles size={14} color="#38bdf8" />
+          <span>🤖 AI ile Tüm Teklifleri Sorgula</span>
+        </button>
       </div>
 
       {/* Filter and Search Bar */}
@@ -242,69 +210,111 @@ export const ObligationsView: React.FC<ObligationsViewProps> = ({
                   (new Date(o.dueDate).getTime() - Date.now()) / (1000 * 3600 * 24)
                 )
 
+                const isCritical = daysRemaining <= 3 || o.riskLevel === 'CRITICAL'
+
                 return (
                   <tr key={o.id} className={dismissingId === o.id ? 'row-highlight' : ''}>
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{o.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                        {o.description.slice(0, 52)}...
+                        {o.description.length > 60 ? `${o.description.slice(0, 60)}...` : o.description}
                       </div>
                     </td>
-                    <td>{o.type}</td>
+
                     <td>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                        {new Date(o.dueDate).toLocaleDateString()}
-                        <span style={{ color: daysRemaining <= 3 ? '#ef4444' : '#f59e0b', fontWeight: 600 }}>
-                          ({daysRemaining} {t.daysLeft})
-                        </span>
+                      <span className="badge badge-medium" style={{ textTransform: 'uppercase', fontSize: 10 }}>
+                        {o.type}
                       </span>
                     </td>
-                    <td className="card-value mono" style={{ fontSize: 13 }}>
+
+                    <td>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: isCritical ? '#ef4444' : 'var(--text-primary)' }}>
+                        {new Date(o.dueDate).toLocaleDateString('tr-TR')}
+                      </div>
+                      <div style={{ fontSize: 11, color: isCritical ? '#ef4444' : 'var(--text-muted)' }}>
+                        {daysRemaining <= 0 ? 'Bugün doluyor' : `${daysRemaining} ${t.daysLeft}`}
+                      </div>
+                    </td>
+
+                    <td className="mono" style={{ fontWeight: 600 }}>
                       {o.amount ? `${o.amount.amount.toLocaleString()} ${o.amount.currency}` : '—'}
                     </td>
+
                     <td>
-                      <span className={`badge badge-${o.riskLevel.toLowerCase()}`}>{o.riskLevel}</span>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: 12, color: o.status === 'RESOLVED' ? '#10b981' : 'var(--text-secondary)' }}>
-                        {o.status}
+                      <span
+                        className={`badge ${
+                          o.riskLevel === 'CRITICAL'
+                            ? 'badge-critical'
+                            : o.riskLevel === 'HIGH'
+                            ? 'badge-high'
+                            : o.riskLevel === 'MEDIUM'
+                            ? 'badge-medium'
+                            : 'badge-low'
+                        }`}
+                      >
+                        {o.riskLevel}
                       </span>
                     </td>
+
                     <td>
-                      {o.suggestedAction ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
-                          {getAdapterIcon(o.suggestedAction.mcpAdapter)}
-                          <span style={{ textTransform: 'capitalize' }}>{o.suggestedAction.mcpAdapter}</span>
-                        </span>
-                      ) : (
-                        '—'
-                      )}
+                      <span
+                        className="badge"
+                        style={{
+                          backgroundColor:
+                            o.status === 'APPROVED'
+                              ? 'rgba(16, 185, 129, 0.15)'
+                              : o.status === 'PENDING_APPROVAL'
+                              ? 'rgba(245, 158, 11, 0.15)'
+                              : 'rgba(56, 189, 248, 0.15)',
+                          color:
+                            o.status === 'APPROVED'
+                              ? '#34d399'
+                              : o.status === 'PENDING_APPROVAL'
+                              ? '#fbbf24'
+                              : '#38bdf8',
+                        }}
+                      >
+                        {o.status === 'APPROVED' ? 'Aktif Takipte' : o.status === 'PENDING_APPROVAL' ? 'Onay Bekliyor' : o.status}
+                      </span>
                     </td>
+
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                        {getAdapterIcon(o.suggestedAction?.mcpAdapter)}
+                        <span>{o.suggestedAction?.description || 'Aksiyon tanımlı'}</span>
+                      </div>
+                    </td>
+
                     <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ fontSize: 11, padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                          onClick={() => handleCollectQuotesForObligation(o.id)}
+                          disabled={loadingRfqId === o.id}
+                          title="Alternatif Tedarikçi Tekliflerini Sorgula"
+                        >
+                          <RefreshCw size={11} className={loadingRfqId === o.id ? 'spin' : ''} />
+                          <span>Teklif Topla</span>
+                        </button>
+
                         {o.status === 'PENDING_APPROVAL' && (
-                          <>
-                            <button
-                              className="btn btn-primary"
-                              style={{ fontSize: 12, padding: '4px 8px' }}
-                              onClick={() => onApprove(o.id)}
-                            >
-                              <CheckCircle size={13} /> {t.approve}
-                            </button>
-                            <button
-                              className="btn btn-secondary"
-                              style={{ fontSize: 12, padding: '4px 8px' }}
-                              onClick={() => handleDismissClick(o.id)}
-                            >
-                              <XCircle size={13} />
-                            </button>
-                          </>
+                          <button
+                            className="btn btn-primary"
+                            style={{ fontSize: 11, padding: '4px 10px' }}
+                            onClick={() => onApprove(o.id)}
+                          >
+                            <CheckCircle size={12} /> {t.approve}
+                          </button>
                         )}
-                        {o.status === 'RESOLVED' && (
-                          <span style={{ color: '#10b981', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <CheckCircle size={13} /> {t.approved}
-                          </span>
-                        )}
+
+                        <button
+                          className="btn btn-secondary"
+                          style={{ fontSize: 11, padding: '4px 8px', color: '#f87171' }}
+                          onClick={() => handleDismissClick(o.id)}
+                        >
+                          <XCircle size={12} />
+                        </button>
                       </div>
                     </td>
                   </tr>
