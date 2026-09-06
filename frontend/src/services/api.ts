@@ -20,7 +20,7 @@ const getApiHost = () => {
   if (typeof window !== 'undefined' && window.location && window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
     return window.location.hostname
   }
-  return '192.168.1.100'
+  return 'localhost'
 }
 
 const getBaseUrl = () => {
@@ -33,7 +33,7 @@ const getBaseUrl = () => {
 // Helper for fetch with timeout
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 8000)
+  const timeoutId = setTimeout(() => controller.abort(), 2500)
 
   try {
     const res = await fetch(`${getBaseUrl()}${endpoint}`, {
@@ -937,7 +937,7 @@ export const api = {
       description: item.description || 'External tool server via SSE/STDIO',
       category: item.category || 'custom',
       transport: item.transport || 'sse',
-      endpointOrCmd: item.endpointOrCmd || 'http://192.168.1.100:9000/sse',
+      endpointOrCmd: item.endpointOrCmd || 'http://localhost:9000/sse',
       enabled: true,
       status: 'online',
       latencyMs: Math.floor(Math.random() * 30) + 12,
@@ -1040,7 +1040,7 @@ const defaultHarnessConfig: HarnessConfig = {
     roleDescription:
       'Sözleşme ve faturaları okuyarak taahhütleri, yenileme şartlarını, cayma cezalarını ve son bildirim tarihlerini tespit eder.',
     provider: 'ollama',
-    endpoint: 'http://192.168.1.100:11434',
+    endpoint: 'http://localhost:11434',
     model: 'gemma2:2b',
     temperature: 0.1,
     maxTokens: 4096,
@@ -1056,7 +1056,7 @@ const defaultHarnessConfig: HarnessConfig = {
     roleDescription:
       'Analyst çıktısını denetler, PII maskelemesini teyit eder, DeepWiki iç tüzüğüyle karşılaştırır ve alternatif teklifleri doğrular.',
     provider: 'ollama',
-    endpoint: 'http://192.168.1.100:11435',
+    endpoint: 'http://localhost:11435',
     model: 'gemma2:2b',
     temperature: 0.0,
     maxTokens: 2048,
@@ -1073,7 +1073,7 @@ const defaultHarnessConfig: HarnessConfig = {
       description: 'Kurumsal bilgi tabanı, şirket içi onay prosedürleri, emsal sözleşme hükümleri ve tedarikçi skorları.',
       category: 'knowledge',
       transport: 'sse',
-      endpointOrCmd: 'http://192.168.1.100:8899/mcp/deepwiki/sse',
+      endpointOrCmd: 'http://localhost:8899/mcp/deepwiki/sse',
       enabled: true,
       status: 'online',
       latencyMs: 14,

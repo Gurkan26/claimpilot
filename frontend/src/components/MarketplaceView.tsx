@@ -56,22 +56,38 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     setScanStep(1)
     setScanStatusText('🔍 Yapay Zeka çalışıyor: Aktif vadeler ve yükümlülükler taranıyor...')
 
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    setScanStep(2)
-    setScanStatusText('📑 Kasko, İnternet, Bulut ve Lisans sözleşmesi şartları analiz ediliyor...')
-
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setScanStep(3)
-    setScanStatusText('🌐 Pazar yeri entegrasyonu üzerinden güncel alternatif teklifler derleniyor...')
-
-    await new Promise((resolve) => setTimeout(resolve, 900))
-    setScanStep(4)
-    setScanStatusText('⚡ Aksigorta, Sompo, Türk Telekom vb. alternatif teklifler üretildi ve risk puanlaması tamamlandı!')
+    // Hard safety timer ensures modal never gets stuck
+    const safetyTimer = setTimeout(() => {
+      setIsAiScanning(false)
+    }, 4500)
 
     try {
-      await onTriggerRFQ(oppId)
+      // Start RFQ quote generation in parallel
+      const rfqPromise = onTriggerRFQ(oppId).catch((err) => {
+        console.warn('RFQ trigger warning:', err)
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      setScanStep(2)
+      setScanStatusText('📑 Kasko, İnternet, Bulut ve Lisans sözleşmesi şartları analiz ediliyor...')
+
+      await new Promise((resolve) => setTimeout(resolve, 550))
+      setScanStep(3)
+      setScanStatusText('🌐 Pazar yeri entegrasyonu üzerinden güncel alternatif teklifler derleniyor...')
+
+      await new Promise((resolve) => setTimeout(resolve, 550))
+      setScanStep(4)
+      setScanStatusText('⚡ Aksigorta, Sompo vb. alternatif teklifler hazırlandı ve risk puanlaması tamamlandı!')
+
+      await Promise.race([
+        rfqPromise,
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ])
+      await new Promise((resolve) => setTimeout(resolve, 400))
+    } catch (e) {
+      console.error('Error during AI RFQ scan:', e)
     } finally {
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      clearTimeout(safetyTimer)
       setIsAiScanning(false)
     }
   }
@@ -294,8 +310,30 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
 
       {/* AI SCANNING OVERLAY MODAL */}
       {isAiScanning && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: 520, textAlign: 'center' }}>
+        <div className="modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setIsAiScanning(false) }}>
+          <div className="modal-content" style={{ maxWidth: 520, textAlign: 'center', position: 'relative' }}>
+            <button
+              onClick={() => setIsAiScanning(false)}
+              style={{
+                position: 'absolute',
+                top: 14,
+                right: 14,
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: 'none',
+                borderRadius: '50%',
+                width: 28,
+                height: 28,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+              }}
+              title="Kapat"
+            >
+              <X size={16} />
+            </button>
+
             <div
               style={{
                 width: 56,
