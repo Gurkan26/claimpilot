@@ -231,9 +231,30 @@ func (uc *HarnessUseCase) TestLLMConnection(ctx context.Context, role, provider,
 		}, nil
 	}
 
-	latency, err := llmclient.CheckOllamaHealth(ctx, endpoint)
+	start := time.Now()
+	var err error
+	if strings.ToLower(provider) == "ollama" || strings.ToLower(provider) == "gemma" {
+		_, err = llmclient.CheckOllamaHealth(ctx, endpoint)
+	} else {
+		cfg := config.LLMConfig{
+			Provider: provider,
+			Endpoint: endpoint,
+			Model:    model,
+			APIKey:   uc.analystProvider.GetConfig().APIKey,
+		}
+		if strings.ToLower(role) == "verifier" {
+			cfg.APIKey = uc.verifierProvider.GetConfig().APIKey
+		}
+		prov, provErr := llmclient.NewProvider(cfg)
+		if provErr != nil {
+			err = provErr
+		} else {
+			err = prov.HealthCheck(ctx)
+		}
+	}
+	latency := time.Since(start).Milliseconds()
 	if err != nil {
-		uc.logger.Warn("LLM connection test failed", "role", role, "endpoint", endpoint, "error", err)
+		uc.logger.Warn("LLM connection test failed", "role", role, "provider", provider, "endpoint", endpoint, "error", err)
 		return &TestLLMResultDTO{
 			Success:   false,
 			LatencyMs: latency,

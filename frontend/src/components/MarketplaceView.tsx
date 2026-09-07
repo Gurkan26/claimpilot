@@ -56,10 +56,10 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
     setScanStep(1)
     setScanStatusText('🔍 Yapay Zeka çalışıyor: Aktif vadeler ve yükümlülükler taranıyor...')
 
-    // Hard safety timer ensures modal never gets stuck
+    // Hard safety timer ensures modal never gets stuck indefinitely
     const safetyTimer = setTimeout(() => {
       setIsAiScanning(false)
-    }, 4500)
+    }, 15000)
 
     try {
       // Start RFQ quote generation in parallel
@@ -67,23 +67,19 @@ export const MarketplaceView: React.FC<MarketplaceViewProps> = ({
         console.warn('RFQ trigger warning:', err)
       })
 
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, 600))
       setScanStep(2)
-      setScanStatusText('📑 Kasko, İnternet, Bulut ve Lisans sözleşmesi şartları analiz ediliyor...')
+      setScanStatusText('📑 Taahhüt ve sözleşme şartları LLM Analisti tarafından inceleniyor...')
 
-      await new Promise((resolve) => setTimeout(resolve, 550))
+      await new Promise((resolve) => setTimeout(resolve, 600))
       setScanStep(3)
-      setScanStatusText('🌐 Pazar yeri entegrasyonu üzerinden güncel alternatif teklifler derleniyor...')
+      setScanStatusText('🌐 Pazar yeri sağlayıcıları taranıyor ve gerçek teklifler derleniyor...')
 
-      await new Promise((resolve) => setTimeout(resolve, 550))
+      await rfqPromise
+
       setScanStep(4)
-      setScanStatusText('⚡ Aksigorta, Sompo vb. alternatif teklifler hazırlandı ve risk puanlaması tamamlandı!')
-
-      await Promise.race([
-        rfqPromise,
-        new Promise((resolve) => setTimeout(resolve, 2000)),
-      ])
-      await new Promise((resolve) => setTimeout(resolve, 400))
+      setScanStatusText('⚡ Otonom AI teklifleri derledi ve risk puanlaması tamamlandı!')
+      await new Promise((resolve) => setTimeout(resolve, 600))
     } catch (e) {
       console.error('Error during AI RFQ scan:', e)
     } finally {
