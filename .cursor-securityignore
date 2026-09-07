@@ -1,0 +1,24 @@
+# Cursor Security MCP suppressions & ignore patterns
+# ClaimPilot — Agentic AI Security Protocol
+
+# Test fixtures and mock data
+**/testdata/**
+backend/testdata/**
+**/*_test.go
+
+# Local build artifacts & packaging outputs
+frontend/dist/**
+frontend/dist-electron/**
+frontend/release/**
+backend/api
+backend/spark
+backend/uploads/**
+
+# Package managers & cache
+**/node_modules/**
+**/.npm/**
+**/.turbo/**
+
+# Logs and environment templates
+*.log
+.env.example

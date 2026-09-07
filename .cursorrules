@@ -1,0 +1,15 @@
+# Cursor Rules — ClaimPilot (Security & Architecture Protocols)
+# Aligned with https://github.com/gurkanfikretgunak/cursor-security
+
+# Security Protocols
+- ZERO SECRETS: Never hardcode credentials, tokens, or private keys in any file.
+- PII FIRST: Any code modifying document ingestion MUST route text through `internal/pii` before invoking AI models.
+- DETERMINISTIC AUTH: Security, RBAC, and input validation must reside in Go code, not LLM prompts.
+- HUMAN-IN-THE-LOOP: Sensitive MCP actions (contract termination, payments) require explicit approval.
+- AUDIT TRAIL: Any automated mutation must be logged to the immutable audit repository.
+
+# Architecture Protocols
+- Go 1.26+ Clean Architecture: `internal/domain` has zero dependencies.
+- Frontend: React 18 + TypeScript with strict typing. No any types where domain models exist.
+- LLM Providers: Implement `llmclient.Provider` interface. Default to Ollama Gemma 2:2B.
+- MCP Tools: Implement `mcp.Adapter` interface with typed `Execute` and `SupportedActions`.
